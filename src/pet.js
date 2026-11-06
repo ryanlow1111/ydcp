@@ -7,16 +7,22 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm'
 import { makeLoops, VIBES } from './moves.js'
 
-/** At most this many frames a second: smooth enough, and kind to the battery. */
-const MAX_FPS = 30
+/**
+ * At most this many frames a second: smooth on 60 Hz screens, and capped on 120 Hz ones to
+ * spare the battery. Each frame costs about a millisecond.
+ */
+const MAX_FPS = 60
 /** Seconds a loop takes to cross-fade into the next. */
 const FADE = 0.6
+/** How long her little hop takes when poked, in seconds. */
+const POKE_HOP = 0.35
 
 /**
  * Creates the companion on `canvas`. `onFirstFrame` runs once her first frame is drawn, so the
- * window can be shown without a flash of nothing.
+ * window can be shown without a flash of nothing. `afterRender` runs right after every frame,
+ * while that frame's pixels can still be read (for click-through).
  */
-export function createPet({ canvas, onFirstFrame = () => {} }) {
+export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () => {} }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, premultipliedAlpha: true })
   renderer.setPixelRatio(Math.min(2, devicePixelRatio))
   renderer.setClearColor(0x000000, 0)
@@ -37,12 +43,21 @@ export function createPet({ canvas, onFirstFrame = () => {} }) {
   const holder = new THREE.Group()
   scene.add(holder)
 
-  /** The cursor, -1..1 across the window; her head eases toward it. (M2: anywhere on screen.) */
+  /** Where her eyes and head aim, -1..1 each way; eased toward the cursor. */
   const cursor = { x: 0, y: 0 }
-  addEventListener('pointermove', event => {
-    cursor.x = (event.clientX / innerWidth - 0.5) * 2
-    cursor.y = (event.clientY / innerHeight - 0.5) * 2
-  })
+
+  /**
+   * The cursor is at window-local (x, y) logical pixels, possibly far outside the window.
+   * She turns toward it: fully when it's a window-and-a-half away, from around her face.
+   */
+  function lookAt(x, y) {
+    const clamp = value => Math.max(-1, Math.min(1, value))
+    cursor.x = clamp((x - innerWidth / 2) / (innerWidth * 1.5))
+    cursor.y = clamp((y - innerHeight * 0.22) / innerHeight)
+  }
+
+  /** When she was last poked (seconds on the timer), or -Infinity. */
+  let pokedAt = -Infinity
 
   let vrm = null
   let mixer = null
@@ -131,6 +146,8 @@ export function createPet({ canvas, onFirstFrame = () => {} }) {
   const extra = new THREE.Quaternion()
   const tilt = new THREE.Euler()
   let smile = 0
+  let surprised = 0
+  const size = new THREE.Vector3()
 
   function frame(timestamp) {
     requestAnimationFrame(frame)
@@ -186,11 +203,20 @@ export function createPet({ canvas, onFirstFrame = () => {} }) {
     }
     holder.rotation.y = Math.sin(t * 0.3) * 0.05
 
+    // A poke: a little hop, a moment of surprise, then a bigger smile that fades back.
+    const sincePoke = t - pokedAt
+    const hop = sincePoke < POKE_HOP ? Math.sin((Math.PI * sincePoke) / POKE_HOP) : 0
+    holder.position.y = hop * (body ? body.getSize(size).y : 1.5) * 0.03
+    const surprisedWant = sincePoke < 0.45 ? 0.9 : 0
+    const smileWant = sincePoke < 0.45 ? 0 : sincePoke < 2.5 ? 0.85 : 0.35
+
     // A soft smile, eased in; random blinks, sometimes a quick double blink.
     const em = vrm.expressionManager
     if (em) {
-      smile += (0.35 - smile) * Math.min(1, dt * 6)
+      smile += (smileWant - smile) * Math.min(1, dt * 6)
+      surprised += (surprisedWant - surprised) * Math.min(1, dt * 10)
       em.setValue('happy', smile)
+      em.setValue('surprised', surprised)
       if (t > nextBlink) {
         blinkEnd = t + 0.13
         nextBlink = t + 2 + Math.random() * 4 + (Math.random() < 0.2 ? -1.6 : 0)
@@ -200,8 +226,14 @@ export function createPet({ canvas, onFirstFrame = () => {} }) {
 
     vrm.update(dt)
     renderer.render(scene, camera)
+    afterRender()
   }
   requestAnimationFrame(frame)
 
-  return { load, setBase }
+  /** A poke: she hops and looks surprised, then happy. */
+  function poke() {
+    pokedAt = timer.getElapsed()
+  }
+
+  return { renderer, load, setBase, lookAt, poke }
 }

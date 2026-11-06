@@ -7,8 +7,12 @@
     "core:app:allow-version",
     "core:event:default",
     "core:window:allow-show",
+    "core:window:allow-outer-position",
+    "core:window:allow-scale-factor",
+    "core:window:allow-set-position",
     "allow-models-folder",
     "allow-list-models",
-    "allow-read-model"
+    "allow-read-model",
+    "allow-set-click-through"
   ]
 }
