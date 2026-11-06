@@ -17,7 +17,8 @@ export default defineConfig({
   build: {
     // WebView2 on Windows is Chromium; WKWebView on macOS 13+ is Safari 16+.
     target: process.env.TAURI_ENV_PLATFORM === 'windows' ? 'chrome105' : 'safari16',
-    minify: process.env.TAURI_ENV_DEBUG ? false : 'esbuild',
+    // Vite's built-in minifier (Vite 8 no longer bundles esbuild); off for debug builds.
+    minify: !process.env.TAURI_ENV_DEBUG,
     sourcemap: Boolean(process.env.TAURI_ENV_DEBUG),
   },
 })
