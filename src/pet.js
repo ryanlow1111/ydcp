@@ -301,6 +301,7 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
   let nextMoment = 0
   let lastMoment = null
   let pokedAt = -Infinity
+  let asleep = false
   let pokeMomentAt = -Infinity
 
   /** Plays a moment once over her vibe, then fades back. Says its line unless `quiet`. */
@@ -339,6 +340,32 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     } else if (base === loops.sleepy) {
       setBase('sway')
     }
+  }
+
+  /** Dozes off (sleepy loop, no moments or drifting) or wakes back up to her vibe. */
+  function setAsleep(sleep) {
+    if (sleep === asleep) {
+      return
+    }
+    asleep = sleep
+    if (asleep) {
+      endMoment()
+      setBase('sleepy')
+    } else {
+      setBase(vibeChoice === 'auto' || !loops[vibeChoice] ? 'sway' : vibeChoice)
+      const t = timer.getElapsed()
+      nextVibe = t + 20 + Math.random() * 15
+      nextMoment = Math.max(nextMoment, t + 8)
+    }
+  }
+
+  /**
+   * Cheers (an agent finished): a file motion marked `onDone` if there is one, otherwise the
+   * built-in Cheer. Her line is said by the caller.
+   */
+  function cheer() {
+    const own = Object.values(moments).find(moment => moment.library && moment.onDone)
+    return playMoment(own?.id ?? 'cheer', { quiet: true })
   }
 
   /** Holds a face (one of FACES) until released with null. */
@@ -403,12 +430,12 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
   /** Moves her on by `dt` seconds (`t` = seconds since start) and draws the frame. */
   function step(dt, t) {
     // Her own rhythm: drift to another vibe now and then, and do a cute moment.
-    if (vibeChoice === 'auto' && !oneOff && t > nextVibe) {
+    if (vibeChoice === 'auto' && !asleep && !oneOff && t > nextVibe) {
       const others = VIBES.filter(name => loops[name] !== base)
       setBase(others[Math.floor(Math.random() * others.length)])
       nextVibe = t + 20 + Math.random() * 20
     }
-    if (!oneOff && t > nextMoment && base !== loops.sleepy) {
+    if (!asleep && !oneOff && t > nextMoment && base !== loops.sleepy) {
       const id = randomMoment()
       if (id) {
         playMoment(id)
@@ -489,6 +516,8 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     setLibrary,
     playMoment,
     setVibe,
+    setAsleep,
+    cheer,
     holdFace,
     poke,
     lookAt,

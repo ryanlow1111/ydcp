@@ -1,19 +1,23 @@
 // YDCP front end: shows the chosen model from ~/.ydcp/models on the desktop, with the built-in
 // moments and any motions from ~/.ydcp/anims. Clicks pass through everywhere except on her;
 // drag her to move her, click to poke her. The menu (in the app) picks models, motions, vibes,
-// faces and size. With no model yet, a welcome card helps add one.
+// faces and size. She has her own mood (mood.js): sleepy when you're away, a hello when you're
+// back, musings; and, only if the agent link is on, a cheer when an agent finishes.
+// With no model yet, a welcome card helps add one.
 
 import { getVersion } from '@tauri-apps/api/app'
 import { createPet, parseMotion } from './pet.js'
 import { createHitTest } from './hit.js'
 import { wireGestures } from './gestures.js'
 import { motionEntries, parseJson } from './library.js'
+import { createMood } from './mood.js'
 import {
   addModel,
   currentModel,
   listAnims,
   modelsFolder,
   moveWindowTo,
+  onAgent,
   onCursor,
   onLibraryChange,
   onPick,
@@ -43,6 +47,7 @@ let model = null
 let library = []
 /** Credits for the motions in use (from motions.json). */
 let motionCredits = []
+const mood = createMood({ now: Date.now() })
 
 // ---- Speech bubble ---------------------------------------------------------------------------
 
@@ -57,6 +62,44 @@ function say(line) {
   bubble.classList.remove('hidden')
   bubbleTimer = setTimeout(() => bubble.classList.add('hidden'), 2500 + line.length * 60)
 }
+
+// ---- Her mood ----------------------------------------------------------------------------------
+
+/** Carries out what the mood decided (see mood.js). */
+function act(actions) {
+  if (!pet || !model) {
+    return
+  }
+  for (const action of actions) {
+    switch (action.do) {
+      case 'sleep':
+        pet.setAsleep(true)
+        say(action.line)
+        break
+      case 'wake':
+        pet.setAsleep(false)
+        if (action.line) {
+          pet.playMoment('wave', { quiet: true })
+          say(action.line)
+        }
+        break
+      case 'greet':
+        pet.playMoment('wave', { quiet: true })
+        say(action.line)
+        break
+      case 'cheer':
+        pet.setAsleep(false)
+        pet.cheer()
+        say(action.line)
+        break
+      case 'say':
+        say(action.line)
+        break
+    }
+  }
+}
+
+setInterval(() => act(mood.tick(Date.now())), 5000)
 
 // ---- Cards (they catch every click while shown) ------------------------------------------------
 
@@ -154,13 +197,20 @@ async function ensurePet() {
   await onCursor(({ x, y, inside }) => {
     pet.lookAt(x, y)
     hit.aim(x, y, inside)
+    act(mood.activity(Date.now()))
   })
   wireGestures({
     element: canvas,
     getWindowPosition: windowPosition,
     scale: windowScale,
     moveWindowTo,
-    onPoke: () => pet.poke(),
+    onPoke: () => {
+      const wasAsleep = mood.asleep
+      act(mood.activity(Date.now()))
+      if (!wasAsleep) {
+        pet.poke()
+      }
+    },
     onPress: down => (down ? hit.hold() : hit.release()),
   })
   return pet
@@ -181,6 +231,7 @@ async function loadModel(name) {
     model = name
     closeCard(card)
     await setCatalogue(pet.catalogue())
+    act(mood.start(Date.now()))
   } catch (error) {
     console.error(`[ydcp] ${error?.stack ?? error}`)
     await showWelcome(`Couldn't load "${name}": ${error?.message ?? error}`)
@@ -236,6 +287,7 @@ async function start() {
   })
   await onLibraryChange(() => loadLibrary())
   await onProblem(message => say(`⚠️ ${message}`))
+  await onAgent(state => act(mood.agent(state, Date.now())))
 
   await loadLibrary()
   await loadModel(await currentModel().catch(() => null))

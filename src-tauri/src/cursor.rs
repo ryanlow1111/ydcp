@@ -108,11 +108,7 @@ fn save_settled_position<R: Runtime>(window: &WebviewWindow<R>) {
     let Ok(path) = crate::assets::data_dir(app).map(|dir| dir.join("settings.json")) else {
         return;
     };
-    let mut current = settings::load(&path);
-    if current.position != Some(position) {
-        current.position = Some(position);
-        if let Err(error) = settings::save(&path, &current) {
-            eprintln!("YDCP: couldn't save her position: {error}");
-        }
+    if let Err(error) = settings::update(&path, |current| current.position = Some(position)) {
+        eprintln!("YDCP: couldn't save her position: {error}");
     }
 }

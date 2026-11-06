@@ -49,6 +49,9 @@ export const onPick = handler => listen('pick', event => handler(event.payload))
 /** Calls `handler()` when the motions folder changed. */
 export const onLibraryChange = handler => listen('library', () => handler())
 
+/** Calls `handler({ mood, line })` when the agent link reports a new state (only while it's on). */
+export const onAgent = handler => listen('agent', event => handler(event.payload))
+
 /** Calls `handler(message)` when the app has a problem to report (e.g. a file it couldn't add). */
 export const onProblem = handler => listen('problem', event => handler(event.payload))
 

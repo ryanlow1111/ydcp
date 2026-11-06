@@ -1,26 +1,85 @@
 //! Notices files added, changed or removed in the models and motions folders (checked every
 //! 2 seconds, by name, size and change time), so the menu and the front end stay current
-//! without a restart. No OS file-watching API, no extra permissions.
+//! without a restart; and, only while the agent link is on, an agent's `state.json` (checked
+//! twice a second). No OS file-watching API, no extra permissions.
 
+use std::path::Path;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
+use crate::agent::{self, AgentLink};
 use crate::assets;
 use crate::menu::{self, Pick, SharedMenu};
 
-const EVERY: Duration = Duration::from_secs(2);
+const TICK: Duration = Duration::from_millis(500);
+/// Folders are checked every this many ticks (2 seconds).
+const FOLDER_TICKS: u32 = 4;
+
+/// Watches the agent's state file: reports each new state once, never one from before it
+/// started watching (so an old "done" doesn't replay at launch or when switched on).
+#[derive(Default)]
+struct AgentWatch {
+    mode: Option<AgentLink>,
+    seen: Option<(u64, SystemTime)>,
+    found: Option<bool>,
+}
+
+impl AgentWatch {
+    fn tick<R: Runtime>(&mut self, app: &AppHandle<R>, path: &Path) {
+        let mode = app
+            .state::<SharedMenu>()
+            .0
+            .lock()
+            .map(|state| state.agent_link)
+            .unwrap_or_default();
+        let signature = agent::signature(path);
+        let found = signature.is_some();
+        if self.found != Some(found) {
+            self.found = Some(found);
+            if let Ok(mut state) = app.state::<SharedMenu>().0.lock() {
+                state.agent_found = found;
+            }
+            menu::refresh(app);
+        }
+        if self.mode != Some(mode) {
+            // Just switched (or just started): take what's there as already seen.
+            self.mode = Some(mode);
+            self.seen = signature;
+            return;
+        }
+        if !mode.watches(found) || signature == self.seen {
+            return;
+        }
+        self.seen = signature;
+        if let Some(state) = agent::read(path) {
+            let _ = app.emit_to("main", "agent", state);
+        }
+    }
+}
 
 /// Starts watching on a background thread.
 pub fn start<R: Runtime>(app: AppHandle<R>) {
     thread::spawn(move || {
         let models_dir = assets::models_dir(&app).ok();
         let anims_dir = assets::anims_dir(&app).ok();
+        let state_file = assets::data_dir(&app)
+            .ok()
+            .map(|dir| dir.join("state.json"));
         let mut models_seen = models_dir.as_deref().map(assets::folder_signature);
         let mut anims_seen = anims_dir.as_deref().map(assets::folder_signature);
+        let mut agent_watch = AgentWatch::default();
+        let mut ticks: u32 = 0;
         loop {
-            thread::sleep(EVERY);
+            thread::sleep(TICK);
+            ticks = ticks.wrapping_add(1);
+            if let Some(path) = state_file.as_ref() {
+                agent_watch.tick(&app, path);
+            }
+            if !ticks.is_multiple_of(FOLDER_TICKS) {
+                continue;
+            }
             if let Some(dir) = models_dir.as_deref() {
                 let now = Some(assets::folder_signature(dir));
                 if now != models_seen {

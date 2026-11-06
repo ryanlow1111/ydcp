@@ -1,0 +1,5 @@
+{
+  "name": "ydcp-link",
+  "version": "0.1.0",
+  "description": "Tells YDCP (Your Desktop Companion Project) what Claude is doing, through one small local file (~/.ydcp/state.json), so your companion can cheer when a reply is done. Not affiliated with Anthropic."
+}

@@ -19,7 +19,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "lint": "eslint .",
-    "test": "vitest run",
+    "test": "vitest run --dir tests",
     "check:version": "node scripts/check-version.mjs",
     "check:privacy": "node scripts/check-privacy.mjs",
     "check": "npm run lint && npm run test && npm run check:version && npm run check:privacy"

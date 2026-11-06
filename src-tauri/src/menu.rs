@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use tauri::menu::{CheckMenuItem, IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{AppHandle, Manager, Runtime};
 
+use crate::agent::AgentLink;
 use crate::settings::Size;
 
 /// One motion or vibe in the menu.
@@ -43,6 +44,9 @@ pub struct MenuState {
     pub size: Size,
     pub on_top: bool,
     pub visible: bool,
+    pub agent_link: AgentLink,
+    /// Whether `~/.ydcp/state.json` exists (an agent hook has written it).
+    pub agent_found: bool,
 }
 
 impl Default for MenuState {
@@ -56,6 +60,8 @@ impl Default for MenuState {
             size: Size::Medium,
             on_top: true,
             visible: true,
+            agent_link: AgentLink::Off,
+            agent_found: false,
         }
     }
 }
@@ -78,6 +84,7 @@ pub enum Pick {
     ReloadMotions,
     Size(String),
     OnTop,
+    Agent(String),
     OpenFolder,
     About,
     Quit,
@@ -99,6 +106,7 @@ impl Pick {
             "reload-motions" => Pick::ReloadMotions,
             "size" => Pick::Size(rest.to_string()),
             "on-top" => Pick::OnTop,
+            "agent" => Pick::Agent(rest.to_string()),
             "open-folder" => Pick::OpenFolder,
             "about" => Pick::About,
             "quit" => Pick::Quit,
@@ -225,6 +233,27 @@ pub fn build<R: Runtime, M: Manager<R>>(app: &M, state: &MenuState) -> tauri::Re
     }
     let sizes = Submenu::with_items(app, "Size", true, &refs(&size_items))?;
 
+    // React to agent ▸ (off by default; for people who use an AI agent or a script).
+    let mut agent_items: Vec<Box<dyn IsMenuItem<R>>> = Vec::new();
+    for mode in AgentLink::ALL {
+        let id = format!("agent:{}", mode.id());
+        agent_items.push(Box::new(check(
+            &id,
+            mode.label(),
+            state.agent_link == mode,
+        )?));
+    }
+    if state.agent_link != AgentLink::Off {
+        agent_items.push(Box::new(separator()?));
+        let status = if state.agent_found {
+            "Agent found ✓"
+        } else {
+            "No agent found yet"
+        };
+        agent_items.push(Box::new(MenuItem::new(app, status, false, None::<&str>)?));
+    }
+    let agent = Submenu::with_items(app, "React to agent", true, &refs(&agent_items))?;
+
     let show = item(
         "show",
         if state.visible {
@@ -246,6 +275,7 @@ pub fn build<R: Runtime, M: Manager<R>>(app: &M, state: &MenuState) -> tauri::Re
             &motions,
             &sizes,
             &on_top,
+            &agent,
             &separator()?,
             &folder,
             &about,
@@ -296,6 +326,7 @@ mod tests {
             Some(Pick::Face(Some("angry".into())))
         );
         assert_eq!(Pick::parse("size:large"), Some(Pick::Size("large".into())));
+        assert_eq!(Pick::parse("agent:auto"), Some(Pick::Agent("auto".into())));
         assert_eq!(Pick::parse("nonsense"), None);
     }
 

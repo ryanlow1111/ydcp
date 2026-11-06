@@ -4,9 +4,12 @@
 
 use std::fs;
 use std::path::Path;
+use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
+
+use crate::agent::AgentLink;
 
 /// Where her window's top-left corner was, in physical screen pixels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -70,6 +73,9 @@ pub struct Settings {
         skip_serializing_if = "Option::is_none"
     )]
     pub always_on_top: Option<bool>,
+    /// Whether she reacts to an agent's state file (off by default).
+    #[serde(default, rename = "agentLink", skip_serializing_if = "Option::is_none")]
+    pub agent_link: Option<AgentLink>,
     /// Everything else in the file, kept untouched.
     #[serde(flatten)]
     pub other: Map<String, Value>,
@@ -92,10 +98,21 @@ pub fn save(path: &Path, settings: &Settings) -> std::io::Result<()> {
     fs::rename(&temporary, path)
 }
 
-/// Loads, changes and saves the settings in one go.
+/// One settings change at a time: the menu (model, size, …) and the position saver (another
+/// thread) both change the file, and each must see the other's last change.
+static CHANGING: Mutex<()> = Mutex::new(());
+
+/// Loads, changes and saves the settings in one go, one change at a time.
 pub fn update(path: &Path, change: impl FnOnce(&mut Settings)) -> std::io::Result<()> {
+    let _turn = CHANGING
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let mut settings = load(path);
+    let before = settings.clone();
     change(&mut settings);
+    if settings == before && path.exists() {
+        return Ok(());
+    }
     save(path, &settings)
 }
 
@@ -145,14 +162,19 @@ mod tests {
     #[test]
     fn saves_and_keeps_unknown_fields() {
         let path = temp_file("roundtrip");
-        fs::write(&path, r#"{ "agentLink": "off", "size": "large" }"#).unwrap();
+        fs::write(
+            &path,
+            r#"{ "agentLink": "off", "size": "large", "future": "kept" }"#,
+        )
+        .unwrap();
         let mut settings = load(&path);
         settings.position = Some(Position { x: -1200, y: 300 });
         save(&path, &settings).unwrap();
         let again = load(&path);
         assert_eq!(again.position, Some(Position { x: -1200, y: 300 }));
-        assert_eq!(again.other.get("agentLink"), Some(&Value::from("off")));
+        assert_eq!(again.agent_link, Some(AgentLink::Off));
         assert_eq!(again.size, Some(Size::Large));
+        assert_eq!(again.other.get("future"), Some(&Value::from("kept")));
     }
 
     #[test]
@@ -163,7 +185,35 @@ mod tests {
         let again = load(&path);
         assert_eq!(again.model.as_deref(), Some("a.vrm"));
         assert_eq!(again.always_on_top, Some(false));
-        assert_eq!(again.other.get("agentLink"), Some(&Value::from("off")));
+        assert_eq!(again.agent_link, Some(AgentLink::Off));
+    }
+
+    #[test]
+    fn changes_from_two_threads_never_lose_each_other() {
+        let path = temp_file("threads");
+        let positions = {
+            let path = path.clone();
+            std::thread::spawn(move || {
+                for x in 0..200 {
+                    update(&path, |settings| {
+                        settings.position = Some(Position { x, y: 0 })
+                    })
+                    .unwrap();
+                }
+            })
+        };
+        for _ in 0..200 {
+            update(&path, |settings| {
+                settings.always_on_top = Some(false);
+                settings.model = Some("a.vrm".into());
+            })
+            .unwrap();
+        }
+        positions.join().unwrap();
+        let end = load(&path);
+        assert_eq!(end.position, Some(Position { x: 199, y: 0 }));
+        assert_eq!(end.always_on_top, Some(false));
+        assert_eq!(end.model.as_deref(), Some("a.vrm"));
     }
 
     #[test]

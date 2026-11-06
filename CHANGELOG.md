@@ -8,6 +8,9 @@ All notable changes to YDCP are listed here. The format follows [Keep a Changelo
 - VRM 1.0 models (what VRoid Studio exports today) no longer raise their arms or tilt the wrong way: all built-in poses are written in VRM 1.0 space and converted for VRM 0.x models.
 
 ### Added
+- Her own mood (M4), no AI needed: she dozes off after 10 minutes with no cursor movement and wakes up with a hello when you're back; she greets you on launch, muses now and then, and sometimes mentions the time of day.
+- Optional agent link, **off by default**: Menu → React to agent → Off / On / Auto. While it's on, `~/.ydcp/state.json` (written by an agent's hook or any script) makes her cheer on `done`, doze on `sleepy`, or say a `line`. Stale, broken or oversized files are ignored, and an old state is never replayed.
+- `integrations/claude-desktop-mod`: a tested mod for the Claude desktop app that writes the state file (working / done / failed / idle).
 - Menu bar / notification-area menu (M3): Show/Hide, Models ▸ (switch without restarting, Add model…), Motions ▸ (moments, Vibes ▸, Expressions ▸, Add motions…, Reload), Size ▸ (Small, Medium, Large), Always on top, Open pet folder, About YDCP…, Quit. Size, always-on-top and the chosen model are remembered.
 - Built-in moments, written as code so no files are needed: Wave, Peace, Cheer, Shy and Stretch. She does one now and then, and when poked, with a speech bubble.
 - Motion library: any `.vrma` in `~/.ydcp/anims/` appears in the menu; optional `motions.json` sets name, face, line, credit, trim (e.g. an opening crouch), speed, loop and hidden. Changes are picked up without a restart.

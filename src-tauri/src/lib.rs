@@ -7,6 +7,7 @@
 //! comes back where she was left (`settings`). Models and motions are read only from
 //! `~/.ydcp/` (`assets`), and changes there are noticed (`watch`).
 
+mod agent;
 mod assets;
 mod cursor;
 mod menu;
@@ -250,6 +251,19 @@ fn on_pick<R: Runtime>(app: &AppHandle<R>, pick: Pick) {
             save_setting(app, |settings| settings.always_on_top = Some(on_top));
             menu::refresh(app);
         }
+        Pick::Agent(ref id) => {
+            let Some(mode) = agent::AgentLink::ALL
+                .into_iter()
+                .find(|mode| mode.id() == id)
+            else {
+                return;
+            };
+            if let Ok(mut state) = app.state::<SharedMenu>().0.lock() {
+                state.agent_link = mode;
+            }
+            save_setting(app, |settings| settings.agent_link = Some(mode));
+            menu::refresh(app);
+        }
         Pick::OpenFolder => open_folder(app),
         Pick::Quit => app.exit(0),
     }
@@ -354,12 +368,14 @@ pub fn run() {
                 .or_else(|| models.first().cloned());
             let size = saved.size.unwrap_or_default();
             let on_top = saved.always_on_top.unwrap_or(true);
+            let agent_link = saved.agent_link.unwrap_or_default();
             if let Ok(mut state) = app.state::<SharedMenu>().0.lock() {
                 *state = MenuState {
                     models,
                     model,
                     size,
                     on_top,
+                    agent_link,
                     ..MenuState::default()
                 };
             }
