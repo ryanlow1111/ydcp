@@ -1,0 +1,52 @@
+name: Bug report
+description: Something doesn't work as expected.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping! **Please don't attach model (.vrm) or motion (.vrma) files** — most can't be shared. Describe them instead.
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options: [macOS (Apple Silicon), macOS (Intel), Windows 11, Windows 10, Windows on ARM]
+    validations: { required: true }
+  - type: input
+    id: version
+    attributes:
+      label: YDCP version
+      description: Menu → About…
+      placeholder: 0.1.0
+    validations: { required: true }
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where did it go wrong?
+      options:
+        - Installing / opening the app
+        - Adding a model
+        - Converting a VRChat avatar
+        - Motions / expressions
+        - Click-through, dragging, position
+        - AI agent link
+        - Something else
+    validations: { required: true }
+  - type: input
+    id: model
+    attributes:
+      label: Model source (if it's about a model)
+      description: For example "my own VRoid Studio export", "BOOTH avatar converted with UniVRM 0.x", "VRoid Hub". Don't upload the file.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+      description: Steps to reproduce help a lot. Screenshots are welcome.
+    validations: { required: true }
+  - type: checkboxes
+    id: assets
+    attributes:
+      label: Asset rule
+      options:
+        - label: I did not attach or link to any model or motion file I don't have the right to share.
+          required: true

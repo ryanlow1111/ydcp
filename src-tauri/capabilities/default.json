@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "What the YDCP window may do. Kept as small as possible; see the Privacy section of the README.",
+  "windows": ["main"],
+  "permissions": ["core:app:allow-version", "core:event:default"]
+}

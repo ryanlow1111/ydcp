@@ -1,0 +1,31 @@
+[package]
+name = "ydcp"
+version = "0.0.1"
+description = "YDCP — Your Desktop Companion Project"
+authors = ["Ryan Low Jun Yen"]
+license = "MIT"
+repository = "https://github.com/ryanlow1111/ydcp"
+edition = "2024"
+rust-version = "1.90"
+publish = false
+
+[lib]
+# `_lib` keeps the library name apart from the `ydcp` binary on Windows.
+name = "ydcp_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.4", features = [] }
+
+[dependencies]
+tauri = { version = "2.12.5", features = [] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[profile.release]
+# Smaller, faster release builds.
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

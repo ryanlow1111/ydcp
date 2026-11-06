@@ -1,0 +1,9 @@
+{
+  "VRMA_01.vrma": { "id": "showBody", "name": "Show outfit", "face": "happy", "line": "Ta-da! Cute outfit, right?" },
+  "VRMA_02.vrma": { "id": "greeting", "name": "Greeting", "face": "happy", "line": "Hehe~ hi hi!", "trim": "crouch" },
+  "VRMA_03.vrma": { "id": "peace", "name": "Peace sign", "face": "happy", "line": "Peace! ✌️" },
+  "VRMA_04.vrma": { "id": "shoot", "name": "Bang!", "face": "angry", "line": "Hmph! Bang!! 💢" },
+  "VRMA_05.vrma": { "id": "spin", "hidden": true },
+  "VRMA_06.vrma": { "id": "modelPose", "hidden": true },
+  "VRMA_07.vrma": { "id": "squat", "name": "Squat", "face": "relaxed", "line": "Stretch break~" }
+}

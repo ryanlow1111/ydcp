@@ -1,0 +1,25 @@
+# Dependencies and builds
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/schemas/
+
+# Character models and motions are NEVER committed: most can't be redistributed.
+# Users keep their own in ~/.ydcp/ (see README "Add your model").
+*.vrm
+*.vrma
+*.unitypackage
+*.fbx
+*.pmx
+*.glb
+*.gltf
+
+# Editors and OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.log
+.env
+.env.*

@@ -1,0 +1,17 @@
+name: Idea or feature request
+description: Suggest something new for YDCP.
+labels: [idea]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like?
+      description: What should your companion do, and why would it be nice?
+    validations: { required: true }
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      description: YDCP promises no internet, no account and no tracking. Ideas that need those won't be added.
+      options:
+        - label: My idea works fully offline on my own computer.
