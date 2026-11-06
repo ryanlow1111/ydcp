@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import * as THREE from 'three'
 import { LOOP, VIBES, makeLoops, sampledClip, wave } from '../src/moves.js'
 
 /** A stand-in for a loaded VRM: every humanoid bone exists, named after itself. */
@@ -55,12 +56,39 @@ describe('built-in motions', () => {
     expect(clip.tracks.map(track => track.name)).toEqual(['Normalized_head.quaternion'])
   })
 
-  test('VRM 0.x flips the centre-line pitch only', () => {
-    const pose = () => ({ head: [0.3, 0, 0], leftUpperArm: [0.3, 0, 0] })
-    const vrm1 = sampledClip(fakeVrm(), 'a', 1, pose, 1)
-    const vrm0 = sampledClip(fakeVrm(), 'b', 1, pose, -1)
-    const track = (clip, bone) => clip.tracks.find(one => one.name === `Normalized_${bone}.quaternion`).values[0]
-    expect(track(vrm0, 'head')).toBeCloseTo(-track(vrm1, 'head'))
-    expect(track(vrm0, 'leftUpperArm')).toBeCloseTo(track(vrm1, 'leftUpperArm'))
+  test('VRM 0.x models get every rotation turned 180° (x and z flipped)', () => {
+    const pose = () => ({ head: [0.3, 0.2, 0.1], leftUpperArm: [0.4, 0.1, -1.2] })
+    const vrm1 = sampledClip(fakeVrm(), 'a', 1, pose, false)
+    const vrm0 = sampledClip(fakeVrm(), 'b', 1, pose, true)
+    for (const bone of ['head', 'leftUpperArm']) {
+      const q1 = vrm1.tracks.find(one => one.name === `Normalized_${bone}.quaternion`).values
+      const q0 = vrm0.tracks.find(one => one.name === `Normalized_${bone}.quaternion`).values
+      expect(q0[0]).toBeCloseTo(-q1[0])
+      expect(q0[1]).toBeCloseTo(q1[1])
+      expect(q0[2]).toBeCloseTo(-q1[2])
+      expect(q0[3]).toBeCloseTo(q1[3])
+    }
+  })
+
+  test('the tuned loops look exactly as before on a VRM 0.x model', () => {
+    // Before the VRM 1.0 conversion, a VRM 0.x model got: centre-line pitch flipped, all else as written.
+    const loops = makeLoops(fakeVrm(), true)
+    const sway = loops.sway
+    const at = (bone, frame) => sway.tracks.find(one => one.name === `Normalized_${bone}.quaternion`).values.slice(frame * 4, frame * 4 + 4)
+    // Prototype sway at t=0: clasped rightUpperArm [0, 0.4, -1.28]; head [0.02 (bow), y, 0].
+    const arm = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0.4, -1.28))
+    expect(at('rightUpperArm', 0)[0]).toBeCloseTo(arm.x)
+    expect(at('rightUpperArm', 0)[2]).toBeCloseTo(arm.z)
+    const head = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.02, Math.sin(0.5 * Math.PI * 2) * 0.05, Math.sin(0) * 0.1))
+    expect(at('head', 0)[0]).toBeCloseTo(head.x)
+  })
+
+  test('on a VRM 1.0 model the arms rest down at her sides', () => {
+    // Right arm points along -x at rest (T-pose). Lowered, it should point mostly down (-y).
+    const idle = makeLoops(fakeVrm(), false).idle
+    const values = idle.tracks.find(one => one.name === 'Normalized_rightUpperArm.quaternion').values
+    const q = new THREE.Quaternion(values[0], values[1], values[2], values[3])
+    const dir = new THREE.Vector3(-1, 0, 0).applyQuaternion(q)
+    expect(dir.y).toBeLessThan(-0.8)
   })
 })

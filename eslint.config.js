@@ -5,7 +5,7 @@ export default [
   { ignores: ['dist/**', 'src-tauri/**', 'node_modules/**'] },
   js.configs.recommended,
   {
-    files: ['src/**/*.js'],
+    files: ['src/**/*.js', 'dev/**/*.js'],
     languageOptions: { globals: globals.browser },
   },
   {

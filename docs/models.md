@@ -1,7 +1,5 @@
 # Models and model profiles
 
-> 🚧 Model loading arrives in v0.1. This page describes how it will work.
-
 YDCP shows any **VRM 0.x or 1.0** model (`.vrm`). To get one, including converting a VRChat avatar, see [README → Add your model](../README.md#add-your-model).
 
 ## Where models live
@@ -25,7 +23,7 @@ A JSON file with the same name as the model, next to it: `my-model.vrm` + `my-mo
   "faces": { "angry": "Angry_Custom" },
   "motionFixes": {
     "greeting": { "clearArms": { "lift": 0.7, "forward": 0.3 } },
-    "peace": { "clearArms": { "pose": { "upper": [0.8, 0, -0.8], "lower": [0, 1.8, 0] } } }
+    "peace": { "clearArms": { "pose": { "upper": [-0.8, 0, 0.8], "lower": [0, 1.8, 0] } } }
   }
 }
 ```
@@ -40,14 +38,14 @@ A JSON file with the same name as the model, next to it: `my-model.vrm` + `my-mo
 
 ### `motionFixes.<motion id>.clearArms`
 
-Some motions bring the hands up to the face. On a model with a big head or long twintails, the hand ends up hidden. While the hand is raised, `clearArms` moves the arm; when the hand is down, the motion is untouched. Angles are in radians and written for the right arm; the left arm is mirrored.
+Some motions bring the hands up to the face. On a model with a big head or long twintails, the hand ends up hidden. While the hand is raised, `clearArms` moves the arm; when the hand is down, the motion is untouched. Angles are in radians, written for the right arm in **VRM 1.0 space** (the same space `.vrma` files use; YDCP converts for VRM 0.x models), and the left arm is mirrored.
 
 | Field | Meaning |
 |---|---|
 | `lift` | Turns the upper arm out away from the head. The sign depends on the pose: try `0.7` or `-0.4` |
 | `forward` | Brings the elbow forward so the hand stays in front of the hair |
 | `straighten` | Opens the elbow, so a hand folded across the face swings out beside it |
-| `pose` | Instead of turning the arm, blends it to a fixed pose: `upper` and `lower` arm Euler angles `[x, y, z]` |
+| `pose` | Instead of turning the arm, blends it to a fixed pose: `upper` and `lower` arm Euler angles `[x, y, z]`. Example: `upper [-0.8, 0, 0.8]`, `lower [0, 1.8, 0]` holds the hand beside the cheek |
 
 **Tuning tip:** start with no fix, look at the motion, then try small values (0.2–0.4) and grow from there.
 

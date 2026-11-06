@@ -1,5 +1,6 @@
-//! `~/.ydcp/settings.json`: small things YDCP remembers between launches (for now, where she
-//! stands). Unknown fields are kept as they are, so newer versions' settings survive.
+//! `~/.ydcp/settings.json`: small things YDCP remembers between launches — where she stands,
+//! which model, her size, always-on-top. Unknown fields are kept as they are, so newer
+//! versions' settings survive.
 
 use std::fs;
 use std::path::Path;
@@ -14,10 +15,61 @@ pub struct Position {
     pub y: i32,
 }
 
+/// Her window's size: Small 0.75×, Medium 1×, Large 1.4× of 320 × 480.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Size {
+    Small,
+    #[default]
+    Medium,
+    Large,
+}
+
+impl Size {
+    pub const ALL: [Size; 3] = [Size::Small, Size::Medium, Size::Large];
+
+    /// The window's size in logical pixels.
+    pub fn logical(self) -> (f64, f64) {
+        let factor = match self {
+            Size::Small => 0.75,
+            Size::Medium => 1.0,
+            Size::Large => 1.4,
+        };
+        (320.0 * factor, 480.0 * factor)
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Size::Small => "Small",
+            Size::Medium => "Medium",
+            Size::Large => "Large",
+        }
+    }
+
+    pub fn id(self) -> &'static str {
+        match self {
+            Size::Small => "small",
+            Size::Medium => "medium",
+            Size::Large => "large",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Settings {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub position: Option<Position>,
+    /// The chosen model's file name in the models folder.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub size: Option<Size>,
+    #[serde(
+        default,
+        rename = "alwaysOnTop",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub always_on_top: Option<bool>,
     /// Everything else in the file, kept untouched.
     #[serde(flatten)]
     pub other: Map<String, Value>,
@@ -38,6 +90,13 @@ pub fn save(path: &Path, settings: &Settings) -> std::io::Result<()> {
     let temporary = path.with_extension("json.tmp");
     fs::write(&temporary, format!("{text}\n"))?;
     fs::rename(&temporary, path)
+}
+
+/// Loads, changes and saves the settings in one go.
+pub fn update(path: &Path, change: impl FnOnce(&mut Settings)) -> std::io::Result<()> {
+    let mut settings = load(path);
+    change(&mut settings);
+    save(path, &settings)
 }
 
 /// A screen's usable area (without the Dock, menu bar or taskbar), in physical pixels.
@@ -93,7 +152,25 @@ mod tests {
         let again = load(&path);
         assert_eq!(again.position, Some(Position { x: -1200, y: 300 }));
         assert_eq!(again.other.get("agentLink"), Some(&Value::from("off")));
-        assert_eq!(again.other.get("size"), Some(&Value::from("large")));
+        assert_eq!(again.size, Some(Size::Large));
+    }
+
+    #[test]
+    fn update_changes_one_thing_and_keeps_the_rest() {
+        let path = temp_file("update");
+        fs::write(&path, r#"{ "agentLink": "off", "model": "a.vrm" }"#).unwrap();
+        update(&path, |settings| settings.always_on_top = Some(false)).unwrap();
+        let again = load(&path);
+        assert_eq!(again.model.as_deref(), Some("a.vrm"));
+        assert_eq!(again.always_on_top, Some(false));
+        assert_eq!(again.other.get("agentLink"), Some(&Value::from("off")));
+    }
+
+    #[test]
+    fn sizes_scale_the_window() {
+        assert_eq!(Size::Medium.logical(), (320.0, 480.0));
+        assert_eq!(Size::Small.logical(), (240.0, 360.0));
+        assert_eq!(Size::Large.logical(), (448.0, 672.0));
     }
 
     #[test]

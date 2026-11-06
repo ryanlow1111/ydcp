@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "What the YDCP window may do. Kept as small as possible; see the Privacy section of the README.",
+  "description": "What the YDCP window may do. Kept as small as possible; see the Privacy section of the README. No dialog, file-system, shell or network permissions: file pickers run in Rust only.",
   "windows": ["main"],
   "permissions": [
     "core:app:allow-version",
@@ -13,6 +13,13 @@
     "allow-models-folder",
     "allow-list-models",
     "allow-read-model",
-    "allow-set-click-through"
+    "allow-read-profile",
+    "allow-list-anims",
+    "allow-read-anim",
+    "allow-read-motions",
+    "allow-set-click-through",
+    "allow-current-model",
+    "allow-set-catalogue",
+    "allow-add-model"
   ]
 }

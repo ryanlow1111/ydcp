@@ -1,14 +1,32 @@
 // Built-in motions, generated from smooth curves, so YDCP needs no motion files to feel alive.
 // They drive VRM *normalized* bones, so they work on any VRM 0.x or 1.0 model.
+//
+// Poses are written in VRM 1.0 space, the same space VRM Animation (.vrma) files use: the
+// model faces +z, her left arm points along +x. In that space, for example:
+//   head/spine +x bows forward · rightUpperArm +z lowers the right arm (-z raises it)
+//   leftUpperArm -z lowers the left arm · rightLowerArm +y bends the right elbow forward.
+// A VRM 0.x skeleton faces the other way (turned 180° about y), so for those models every
+// rotation's x and z are flipped (`vrm0`), exactly as three-vrm-animation does for .vrma clips.
 
 import * as THREE from 'three'
 
-/**
- * The centre line's pitch (hips to head) runs the other way in a VRM 0.x skeleton: there a
- * positive angle tips the head back. Poses here are written as for VRM 1.0 (+x bows forward);
- * `pitchSign` (-1 for VRM 0.x) flips them.
- */
+/** The body's centre line, hips to head. */
 export const CENTRE_LINE = new Set(['hips', 'spine', 'chest', 'upperChest', 'neck', 'head'])
+
+/** The same pose on the other side of the body: a right-arm pose made into a left-arm one. */
+export const mirror = ([x, y, z]) => [x, -y, -z]
+
+/**
+ * Converts poses written in the prototype's original space to VRM 1.0 space. The vibe loops
+ * were tuned by eye on a VRM 0.x model, with the centre line's pitch already written VRM 1.0
+ * style; this keeps every one of those tuned numbers exactly as it was.
+ */
+function fromPrototype(pose) {
+  return t =>
+    Object.fromEntries(
+      Object.entries(pose(t)).map(([bone, [x, y, z]]) => [bone, CENTRE_LINE.has(bone) ? [x, y, -z] : [-x, y, -z]]),
+    )
+}
 
 /** Every loop lasts a whole number of each rhythm in it, so its end joins its start smoothly. */
 export const LOOP = 24
@@ -21,9 +39,10 @@ export const wave = (t, period, phase = 0) => Math.sin((t / period + phase) * Ma
 
 /**
  * A clip sampled from smooth curves at 24 fps. `pose(t)` gives `[x, y, z]` Euler angles per
- * humanoid bone; bones the model doesn't have are skipped.
+ * humanoid bone, in VRM 1.0 space; `vrm0` converts them for a VRM 0.x model. Bones the model
+ * doesn't have are skipped.
  */
-export function sampledClip(vrm, name, duration, pose, pitchSign = 1) {
+export function sampledClip(vrm, name, duration, pose, vrm0 = false) {
   const fps = 24
   const frames = Math.round(duration * fps)
   const times = Array.from({ length: frames + 1 }, (_, i) => (i / frames) * duration)
@@ -36,7 +55,7 @@ export function sampledClip(vrm, name, duration, pose, pitchSign = 1) {
       if (!node) {
         continue
       }
-      quat.setFromEuler(euler.set(CENTRE_LINE.has(boneName) ? x * pitchSign : x, y, z))
+      quat.setFromEuler(vrm0 ? euler.set(-x, y, -z) : euler.set(x, y, z))
       ;(tracks[node.name] ??= []).push(quat.x, quat.y, quat.z, quat.w)
     }
   }
@@ -47,34 +66,37 @@ export function sampledClip(vrm, name, duration, pose, pitchSign = 1) {
   )
 }
 
+/** Arms at her sides; each part breathes and sways on its own rhythm (prototype space). */
+const rest = (t, droop = 0) => ({
+  hips: [0, wave(t, 8, 0.1) * 0.03, wave(t, 8) * 0.02],
+  spine: [wave(t, 4) * 0.02 + droop * 0.5, 0, wave(t, 8, 0.3) * -0.015],
+  chest: [wave(t, 4, 0.15) * 0.025 + droop * 0.4, wave(t, 8, 0.6) * 0.02, 0],
+  leftShoulder: [0, 0, wave(t, 4, 0.2) * 0.02 - droop * 0.1],
+  rightShoulder: [0, 0, -wave(t, 4, 0.2) * 0.02 + droop * 0.1],
+  leftUpperArm: [wave(t, 8, 0.4) * 0.04, 0, 1.2 - wave(t, 4, 0.25) * 0.025 + droop * 0.1],
+  rightUpperArm: [wave(t, 8, 0.9) * 0.04, 0, -1.2 + wave(t, 4, 0.25) * 0.025 - droop * 0.1],
+  leftLowerArm: [0, -0.2 + wave(t, 8, 0.5) * 0.04, 0],
+  rightLowerArm: [0, 0.2 + wave(t, 8, 0.0) * 0.04, 0],
+  neck: [droop * 0.6, wave(t, 8, 0.7) * 0.05, wave(t, 8, 0.2) * 0.02],
+  head: [wave(t, 4, 0.35) * 0.015 + droop * 0.4, wave(t, 8, 0.45) * 0.06, wave(t, 8, 0.85) * 0.04],
+})
+
+/** Hands clasped in front of her (prototype space). */
+const clasped = {
+  leftUpperArm: [0, -0.4, 1.28],
+  rightUpperArm: [0, 0.4, -1.28],
+  leftLowerArm: [0, -0.9, 0],
+  rightLowerArm: [0, 0.9, 0],
+  leftHand: [0, 0, 0.2],
+  rightHand: [0, 0, -0.2],
+}
+
+/** Her resting, breathing pose in VRM 1.0 space, for building other motions on. */
+export const restPose = fromPrototype(t => rest(t))
+
 /** The vibe loops: idle, sway, bop and sleepy, each `LOOP` seconds long. */
-export function makeLoops(vrm, pitchSign = 1) {
-  const clip = (name, pose) => sampledClip(vrm, name, LOOP, pose, pitchSign)
-
-  // Arms at her sides; each part breathes and sways on its own rhythm.
-  const rest = (t, droop = 0) => ({
-    hips: [0, wave(t, 8, 0.1) * 0.03, wave(t, 8) * 0.02],
-    spine: [wave(t, 4) * 0.02 + droop * 0.5, 0, wave(t, 8, 0.3) * -0.015],
-    chest: [wave(t, 4, 0.15) * 0.025 + droop * 0.4, wave(t, 8, 0.6) * 0.02, 0],
-    leftShoulder: [0, 0, wave(t, 4, 0.2) * 0.02 - droop * 0.1],
-    rightShoulder: [0, 0, -wave(t, 4, 0.2) * 0.02 + droop * 0.1],
-    leftUpperArm: [wave(t, 8, 0.4) * 0.04, 0, 1.2 - wave(t, 4, 0.25) * 0.025 + droop * 0.1],
-    rightUpperArm: [wave(t, 8, 0.9) * 0.04, 0, -1.2 + wave(t, 4, 0.25) * 0.025 - droop * 0.1],
-    leftLowerArm: [0, -0.2 + wave(t, 8, 0.5) * 0.04, 0],
-    rightLowerArm: [0, 0.2 + wave(t, 8, 0.0) * 0.04, 0],
-    neck: [droop * 0.6, wave(t, 8, 0.7) * 0.05, wave(t, 8, 0.2) * 0.02],
-    head: [wave(t, 4, 0.35) * 0.015 + droop * 0.4, wave(t, 8, 0.45) * 0.06, wave(t, 8, 0.85) * 0.04],
-  })
-
-  // Hands clasped in front of her.
-  const clasped = {
-    leftUpperArm: [0, -0.4, 1.28],
-    rightUpperArm: [0, 0.4, -1.28],
-    leftLowerArm: [0, -0.9, 0],
-    rightLowerArm: [0, 0.9, 0],
-    leftHand: [0, 0, 0.2],
-    rightHand: [0, 0, -0.2],
-  }
+export function makeLoops(vrm, vrm0 = false) {
+  const clip = (name, pose) => sampledClip(vrm, name, LOOP, fromPrototype(pose), vrm0)
 
   const idle = clip('idle', t => rest(t))
 

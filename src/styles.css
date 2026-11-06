@@ -1,4 +1,5 @@
-/* The window is transparent: only the companion (and, when needed, the card) is drawn. */
+/* The window is transparent: only the companion, her speech bubble and (when needed) a card
+   are drawn. */
 :root {
   --ink: #3d3929;
   --muted: #8a8478;
@@ -35,34 +36,73 @@ body {
   display: block;
 }
 
-#card {
+/* Her speech bubble, above her head. Clicks go through it. */
+#bubble {
+  position: fixed;
+  top: 8px;
+  left: 50%;
+  max-width: calc(100% - 32px);
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 12.5px;
+  text-align: center;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.16);
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+#bubble.hidden {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-4px);
+}
+
+.card {
   position: fixed;
   left: 12px;
   right: 12px;
   bottom: 12px;
+  max-height: calc(100% - 24px);
+  overflow: auto;
   padding: 14px 16px;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--card);
   color: var(--ink);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+  user-select: text;
+  -webkit-user-select: text;
 }
 
-#card[hidden] {
+.card[hidden] {
   display: none;
 }
 
-#card h1 {
+.card h1 {
   margin: 0 0 6px;
   font-size: 16px;
   color: var(--accent);
 }
 
-#card p {
+.card h1 span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: normal;
+}
+
+.card p {
   margin: 0 0 8px;
 }
 
-#card code {
+.card .small {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.card code {
   display: block;
   margin-bottom: 10px;
   padding: 6px 8px;
@@ -70,11 +110,10 @@ body {
   background: var(--line);
   font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   word-break: break-all;
-  user-select: text;
-  -webkit-user-select: text;
 }
 
-#card button {
+.card button {
+  margin-bottom: 8px;
   padding: 5px 14px;
   border: 0;
   border-radius: 8px;
@@ -84,8 +123,22 @@ body {
   cursor: pointer;
 }
 
-#card .hint {
-  margin: 10px 0 0;
+.card .hint {
+  margin: 4px 0 0;
   color: var(--muted);
   font-size: 11px;
+}
+
+.card dl {
+  margin: 8px 0;
+  font-size: 12px;
+}
+
+.card dt {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.card dd {
+  margin: 0 0 6px;
 }

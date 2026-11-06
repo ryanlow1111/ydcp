@@ -6,7 +6,14 @@ fn main() {
             "models_folder",
             "list_models",
             "read_model",
+            "read_profile",
+            "list_anims",
+            "read_anim",
+            "read_motions",
             "set_click_through",
+            "current_model",
+            "set_catalogue",
+            "add_model",
         ]),
     ))
     .expect("failed to run tauri-build");

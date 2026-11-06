@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>YDCP pose lab (dev)</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #2b2a27; color: #eee; font: 12px system-ui, sans-serif; }
+      #stage { position: fixed; left: 0; top: 0; width: 320px; height: 480px; background: #3b3a36; }
+      #bubble { position: fixed; left: 340px; top: 12px; }
+      #info { position: fixed; left: 340px; top: 40px; white-space: pre; }
+    </style>
+  </head>
+  <body>
+    <canvas id="stage" width="320" height="480"></canvas>
+    <div id="bubble"></div>
+    <div id="info">
+Dev only — never shipped. Models: dev/models/*.vrm (git-ignored), motions: dev/anims/*.vrma.
+?model=mw-miku (default) or ?model=vrm1-sample
+Console: __lab.play('wave'), __lab.bones(['rightHand','head'])
+    </div>
+    <script type="module" src="./pose.js"></script>
+  </body>
+</html>
