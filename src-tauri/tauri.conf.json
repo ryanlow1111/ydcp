@@ -10,14 +10,25 @@
     "beforeBuildCommand": "npm run build"
   },
   "app": {
+    "macOSPrivateApi": true,
     "windows": [
       {
         "label": "main",
         "title": "YDCP",
-        "width": 420,
-        "height": 320,
+        "width": 320,
+        "height": 480,
+        "visible": false,
+        "transparent": true,
+        "decorations": false,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "visibleOnAllWorkspaces": true,
+        "skipTaskbar": true,
         "resizable": false,
-        "center": true
+        "maximizable": false,
+        "minimizable": false,
+        "focus": false,
+        "acceptFirstMouse": true
       }
     ],
     "security": {

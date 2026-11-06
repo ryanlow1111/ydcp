@@ -20,5 +20,7 @@ export default defineConfig({
     // Vite's built-in minifier (Vite 8 no longer bundles esbuild); off for debug builds.
     minify: !process.env.TAURI_ENV_DEBUG,
     sourcemap: Boolean(process.env.TAURI_ENV_DEBUG),
+    // three.js + three-vrm make one ~800 KB bundle; it's loaded from disk, never downloaded.
+    chunkSizeWarningLimit: 1500,
   },
 })

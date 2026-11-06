@@ -1,20 +1,18 @@
+/* The window is transparent: only the companion (and, when needed, the card) is drawn. */
 :root {
-  --bg: #faf9f5;
   --ink: #3d3929;
   --muted: #8a8478;
-  --card: #f0eee6;
+  --card: #faf9f5;
   --line: #e3dfd3;
   --accent: #e8836b;
-  color-scheme: light dark;
-  font: 14px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font: 13px/1.45 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #262624;
     --ink: #f0eee6;
     --muted: #a8a29a;
-    --card: #30302e;
+    --card: #262624;
     --line: #3a3936;
   }
 }
@@ -23,38 +21,71 @@ html,
 body {
   margin: 0;
   height: 100%;
-  background: var(--bg);
-  color: var(--ink);
+  overflow: hidden;
+  background: transparent;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
-#app {
-  display: grid;
-  place-items: center;
+#stage {
+  position: fixed;
+  inset: 0;
+  width: 100%;
   height: 100%;
-  padding: 16px;
-  box-sizing: border-box;
+  display: block;
 }
 
-.card {
-  max-width: 320px;
-  padding: 20px 24px;
+#card {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  padding: 14px 16px;
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: 14px;
   background: var(--card);
-  text-align: center;
+  color: var(--ink);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
 }
 
-h1 {
-  margin: 0;
-  font-size: 22px;
+#card[hidden] {
+  display: none;
+}
+
+#card h1 {
+  margin: 0 0 6px;
+  font-size: 16px;
   color: var(--accent);
 }
 
-.tagline {
-  margin: 2px 0 12px;
-  color: var(--muted);
+#card p {
+  margin: 0 0 8px;
 }
 
-#status {
-  margin: 0;
+#card code {
+  display: block;
+  margin-bottom: 10px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--line);
+  font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  word-break: break-all;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+#card button {
+  padding: 5px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+#card .hint {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 11px;
 }

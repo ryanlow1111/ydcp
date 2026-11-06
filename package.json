@@ -25,7 +25,9 @@
     "check": "npm run lint && npm run test && npm run check:version && npm run check:privacy"
   },
   "dependencies": {
-    "@tauri-apps/api": "2.12.4"
+    "@pixiv/three-vrm": "3.5.5",
+    "@tauri-apps/api": "2.12.4",
+    "three": "0.187.0"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
