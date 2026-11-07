@@ -41,10 +41,12 @@ jobs:
         run: |
           VERSION="${TAG#v}"
           node scripts/release-notes.mjs "$VERSION" > notes.md
-          PRERELEASE=""
-          case "$VERSION" in *-*) PRERELEASE="--prerelease" ;; esac
-          gh release create "$TAG" --draft $PRERELEASE --title "YDCP $TAG" --notes-file notes.md --verify-tag
-          ID=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=20" --jq ".[] | select(.tag_name == \"$TAG\") | .id" | head -1)
+          PRERELEASE=false
+          case "$VERSION" in *-*) PRERELEASE=true ;; esac
+          # The API answers with the new release's id; a brand-new draft may not be listed yet.
+          ID=$(gh api "repos/$GITHUB_REPOSITORY/releases" \
+            -f tag_name="$TAG" -f name="YDCP $TAG" -F body=@notes.md \
+            -F draft=true -F prerelease="$PRERELEASE" --jq .id)
           test -n "$ID"
           echo "release-id=$ID" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
