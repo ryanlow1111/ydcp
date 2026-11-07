@@ -218,7 +218,7 @@ fn on_pick<R: Runtime>(app: &AppHandle<R>, pick: Pick) {
             menu::refresh(app);
             let _ = app.emit_to("main", "pick", pick);
         }
-        Pick::Moment(_) | Pick::About => {
+        Pick::Moment(_) | Pick::About | Pick::AboutModel => {
             let _ = app.emit_to("main", "pick", pick);
         }
         Pick::Size(ref id) => {
@@ -330,6 +330,7 @@ fn frame_rate<R: Runtime>(app: AppHandle<R>) -> u32 {
 #[tauri::command]
 fn set_catalogue<R: Runtime>(app: AppHandle<R>, catalogue: Catalogue) {
     if let Ok(mut state) = app.state::<SharedMenu>().0.lock() {
+        state.face = catalogue.face.clone();
         state.catalogue = catalogue;
     }
     menu::refresh(&app);

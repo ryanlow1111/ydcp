@@ -31,6 +31,9 @@ pub struct Catalogue {
     pub vibes: Vec<Item>,
     #[serde(default)]
     pub faces: Vec<String>,
+    /// The face she's holding: a new model may not have the old one.
+    #[serde(default)]
+    pub face: Option<String>,
 }
 
 /// Everything the menu shows.
@@ -91,6 +94,7 @@ pub enum Pick {
     FrameRate(String),
     OpenFolder,
     About,
+    AboutModel,
     Quit,
 }
 
@@ -114,6 +118,7 @@ impl Pick {
             "frame-rate" => Pick::FrameRate(rest.to_string()),
             "open-folder" => Pick::OpenFolder,
             "about" => Pick::About,
+            "about-model" => Pick::AboutModel,
             "quit" => Pick::Quit,
             _ => return None,
         })
@@ -163,6 +168,13 @@ pub fn build<R: Runtime, M: Manager<R>>(app: &M, state: &MenuState) -> tauri::Re
     }
     model_items.push(Box::new(separator()?));
     model_items.push(Box::new(item("add-model", "Add model…")?));
+    model_items.push(Box::new(MenuItem::with_id(
+        app,
+        "about-model",
+        "About this model…",
+        state.model.is_some(),
+        None::<&str>,
+    )?));
     let models = Submenu::with_items(app, "Models", true, &refs(&model_items))?;
 
     // Motions ▸ — moments, then Vibes ▸ and Expressions ▸.
@@ -214,6 +226,14 @@ pub fn build<R: Runtime, M: Manager<R>>(app: &M, state: &MenuState) -> tauri::Re
             &format!("face:{face}"),
             &capitalised(face),
             checked,
+        )?));
+    }
+    if state.catalogue.faces.is_empty() {
+        face_items.push(Box::new(MenuItem::new(
+            app,
+            "This model has no expressions",
+            false,
+            None::<&str>,
         )?));
     }
     motion_items.push(Box::new(Submenu::with_items(
@@ -333,6 +353,7 @@ mod tests {
     #[test]
     fn reads_menu_ids() {
         assert_eq!(Pick::parse("quit"), Some(Pick::Quit));
+        assert_eq!(Pick::parse("about-model"), Some(Pick::AboutModel));
         assert_eq!(
             Pick::parse("model:My Model.vrm"),
             Some(Pick::Model("My Model.vrm".into()))

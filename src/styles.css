@@ -67,6 +67,7 @@ body {
   left: 12px;
   right: 12px;
   bottom: 12px;
+  box-sizing: border-box;
   max-height: calc(100% - 24px);
   overflow: auto;
   padding: 14px 16px;
@@ -125,10 +126,59 @@ body {
   cursor: pointer;
 }
 
+/* Long cards scroll, but Close always stays in reach. */
+#model-close,
+#about-close {
+  position: sticky;
+  bottom: 0;
+  margin: 4px 0 0;
+  box-shadow: 0 0 0 6px var(--card);
+}
+
 .card .hint {
   margin: 4px 0 0;
   color: var(--muted);
   font-size: 11px;
+}
+
+.card ul {
+  margin: 8px 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+
+.card li {
+  position: relative;
+  margin: 0 0 6px;
+  padding-left: 18px;
+  overflow-wrap: anywhere;
+}
+
+.card li::before {
+  position: absolute;
+  left: 0;
+  font-weight: 600;
+}
+
+.card li.good::before {
+  content: '✓';
+  color: #4f9a5d;
+}
+
+.card li.info::before {
+  content: 'ℹ';
+  color: var(--muted);
+}
+
+.card li.warn::before {
+  content: '!';
+  color: #d08a1d;
+}
+
+.card li.bad::before {
+  content: '✕';
+  color: #cf4f43;
 }
 
 .card dl {

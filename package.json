@@ -22,6 +22,7 @@
     "test": "vitest run --dir tests",
     "check:version": "node scripts/check-version.mjs",
     "check:privacy": "node scripts/check-privacy.mjs",
+    "check:models": "node scripts/check-models.mjs",
     "check": "npm run lint && npm run test && npm run check:version && npm run check:privacy"
   },
   "dependencies": {

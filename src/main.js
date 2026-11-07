@@ -10,6 +10,7 @@ import { createPet, parseMotion } from './pet.js'
 import { createHitTest } from './hit.js'
 import { wireGestures } from './gestures.js'
 import { motionEntries, parseJson } from './library.js'
+import { inspectModel } from './modelinfo.js'
 import { createMood } from './mood.js'
 import {
   addModel,
@@ -40,12 +41,15 @@ const card = document.getElementById('card')
 const cardText = document.getElementById('card-text')
 const cardPath = document.getElementById('card-path')
 const about = document.getElementById('about')
+const modelCard = document.getElementById('model-card')
 
 let pet = null
 let hit = null
 let model = null
 /** Loaded library motions, kept for a pet created later. */
 let library = []
+/** What the current model's file says it has and lacks (modelinfo.js). */
+let modelReport = null
 /** Credits for the motions in use (from motions.json). */
 let motionCredits = []
 const mood = createMood({ now: Date.now() })
@@ -137,6 +141,38 @@ async function showWelcome(problem) {
 
 document.getElementById('add-model').addEventListener('click', () => addModel())
 document.getElementById('about-close').addEventListener('click', () => closeCard(about))
+document.getElementById('model-close').addEventListener('click', () => closeCard(modelCard))
+
+/** About this model: what it has and lacks, in plain words. */
+function showModelCard() {
+  if (!modelReport) {
+    return
+  }
+  const { summary, notes } = modelReport
+  const megabytes = (summary.bytes / 1024 / 1024).toFixed(1)
+  document.getElementById('model-name').textContent = summary.name || model
+  document.getElementById('model-facts').textContent = [
+    summary.author && `By ${summary.author}`,
+    `VRM ${summary.version}`,
+    `${megabytes} MB`,
+    `${Math.round(summary.triangles / 1000)}k triangles`,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  const list = document.getElementById('model-notes')
+  list.replaceChildren(
+    ...notes.map(({ level, text }) => {
+      const item = document.createElement('li')
+      item.className = level
+      item.textContent = text
+      return item
+    }),
+  )
+  const { allowedUser, redistribution } = summary.licence
+  document.getElementById('model-licence').textContent = `Licence in the file: use ${allowedUser ?? 'not stated'}, redistribution ${redistribution ?? 'not stated'}.`
+  closeCard(about)
+  openCard(modelCard)
+}
 
 /** About YDCP: version, the model's credit and licence, motion credits, privacy. */
 async function showAbout() {
@@ -167,6 +203,7 @@ async function showAbout() {
   }
   add('Motions', motionCredits.join(' · '))
   add('Built with', 'Tauri, three.js, three-vrm (MIT)')
+  closeCard(modelCard)
   openCard(about)
   await showWindow()
 }
@@ -189,7 +226,7 @@ async function ensurePet() {
     setClickThrough: on => setClickThrough(on).catch(error => console.error(`[ydcp] click-through: ${error}`)),
   })
   // Any card already showing keeps catching clicks.
-  for (const element of [card, about]) {
+  for (const element of [card, about, modelCard]) {
     if (!element.hidden) {
       hit.hold()
     }
@@ -221,11 +258,19 @@ async function ensurePet() {
 async function loadModel(name) {
   if (!name) {
     model = null
+    modelReport = null
+    closeCard(modelCard)
     canvas.hidden = true
     return showWelcome()
   }
   try {
     const [bytes, profileText] = await Promise.all([readModel(name), readProfile(name).catch(() => null)])
+    // A file we can't read this way still goes to the loader, which gives the real error.
+    try {
+      modelReport = inspectModel(bytes)
+    } catch {
+      modelReport = null
+    }
     await ensurePet()
     pet.setFrameRate(await frameRate().catch(() => 60))
     canvas.hidden = false
@@ -287,6 +332,9 @@ async function start() {
         break
       case 'about':
         showAbout()
+        break
+      case 'aboutModel':
+        showModelCard()
         break
     }
   })

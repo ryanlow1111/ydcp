@@ -33,6 +33,12 @@ cargo test
 
 CI runs the same checks on macOS and Windows.
 
+To see what any VRM models have and lack, without opening the app (the files stay where they are, and models are never added to the repo):
+
+```bash
+npm run check:models -- ~/.ydcp/models
+```
+
 ## Project layout
 
 | Path | What's there |

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import * as THREE from 'three'
-import { modelProfile, motionEntries, parseJson, tidyName } from '../src/library.js'
+import { faceList, modelProfile, motionEntries, parseJson, resolveFace, tidyName } from '../src/library.js'
 import { MOMENTS, MOMENT_IDS, makeMoments } from '../src/moments.js'
 import { defaultBody, solveArm, wristOf } from '../src/body.js'
 import { crouchEnd, trimClip } from '../src/fixes.js'
@@ -37,6 +37,41 @@ describe('motions.json', () => {
     expect(parseJson('[1, 2]')).toEqual({})
     expect(parseJson('{"a": 1}')).toEqual({ a: 1 })
     expect(tidyName('VRMA_01.vrma')).toBe('VRMA 01')
+  })
+})
+
+describe('expressions: the menu lists what the model really has', () => {
+  const list = (...names) => names.map(name => ({ name, binds: 1 }))
+
+  test('standard faces first, then custom ones, then blink; mouth shapes and gaze left out', () => {
+    const faces = faceList(list('aa', 'blink', 'Wink', 'sad', 'lookUp', 'happy', 'Blush', 'neutral', 'blinkLeft'))
+    expect(faces).toEqual(['happy', 'sad', 'Blush', 'Wink', 'blink'])
+  })
+
+  test('expressions that move nothing are left out', () => {
+    expect(faceList([{ name: 'angry', binds: 0 }, { name: 'happy', binds: 2 }])).toEqual(['happy'])
+  })
+
+  test('a model with no usable expressions has an empty list', () => {
+    expect(faceList([])).toEqual([])
+    expect(faceList(list('aa', 'neutral'))).toEqual([])
+  })
+
+  test('finds a face by name, in other capitals, or through the profile', () => {
+    const faces = ['happy', 'Surprised', 'Smile_02']
+    expect(resolveFace('happy', faces)).toBe('happy')
+    expect(resolveFace('surprised', faces)).toBe('Surprised')
+    expect(resolveFace('angry', faces)).toBeNull()
+    expect(resolveFace('angry', faces, { angry: 'Smile_02' })).toBe('Smile_02')
+    expect(resolveFace(null, faces)).toBeNull()
+  })
+
+  test('a model with only numbered faces uses its first one', () => {
+    const faces = ['happy02', 'happy01', 'happy10', 'sad_1', 'happyish', 'blink']
+    expect(resolveFace('happy', faces)).toBe('happy01')
+    expect(resolveFace('sad', faces)).toBe('sad_1')
+    expect(resolveFace('blink', faces)).toBe('blink')
+    expect(resolveFace('angry', faces)).toBeNull()
   })
 })
 

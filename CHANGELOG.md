@@ -4,6 +4,13 @@ All notable changes to YDCP are listed here. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+### Added
+- Models → About this model… says what the loaded model has and lacks, in plain words: faces, blinking, hair physics, finger and eye bones, size, and the licence in its file.
+- `npm run check:models -- <folder>`: the same report for a whole folder of models, for testing before a release.
+
+### Changed
+- Menu → Motions → Expressions now lists what the loaded model really has, including its custom expressions. A model with no usable expressions says so.
+
 ## [0.1.0] - 2026-11-07
 
 First beta, for friends. macOS and Windows.

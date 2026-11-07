@@ -11,7 +11,7 @@ import { defaultBody, measureBody } from './body.js'
 import { makeLoops, VIBES } from './moves.js'
 import { MOMENTS, MOMENT_IDS, makeMoments } from './moments.js'
 import { applyTrim, clearArms } from './fixes.js'
-import { FACES, modelProfile } from './library.js'
+import { faceList, modelProfile, resolveFace } from './library.js'
 
 /**
  * At most this many frames a second: smooth on 60 Hz screens, and capped on 120 Hz ones to
@@ -258,6 +258,7 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
       }
     })
     figure = measureBody(vrm)
+    readFaces()
     for (const [name, clip] of Object.entries(makeLoops(vrm, vrm0, figure))) {
       loops[name] = mixer.clipAction(clip)
     }
@@ -376,10 +377,24 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     return playMoment(own?.id ?? 'peace', { quiet: true })
   }
 
-  /** Holds a face (one of FACES) until released with null. */
+  /** Holds one of the model's faces until released with null. */
   function holdFace(name) {
-    heldFace = FACES.includes(name) ? name : null
+    heldFace = modelFaces.includes(name) ? name : null
   }
+
+  /** The model's faces, read fresh for each model; anything from the last model is forgotten. */
+  function readFaces() {
+    const expressions = vrm.expressionManager?.expressions ?? []
+    modelFaces = faceList(expressions.map(expression => ({ name: expression.expressionName, binds: expression.binds.length })))
+    faceWeights = Object.fromEntries(modelFaces.filter(name => name !== blinkName()).map(name => [name, 0]))
+    if (!modelFaces.includes(heldFace)) {
+      heldFace = null
+    }
+  }
+
+  const faceFor = face => resolveFace(face, modelFaces, profile.faces)
+  /** The model's blink, which every model's blinking and dozing use. */
+  const blinkName = () => faceFor('blink')
 
   /** A poke: she hops and looks surprised, then does a cute moment. */
   function poke() {
@@ -402,7 +417,7 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
       vibes: vibes.map(id => ({ id, name: vibeNames[id] ?? id.charAt(0).toUpperCase() + id.slice(1) })),
       vibe: vibeChoice,
       face: heldFace,
-      faces: FACES,
+      faces: modelFaces,
     }
   }
 
@@ -418,7 +433,10 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
   const FOLLOW_BASE = new Map(['head', 'neck', 'chest'].map(name => [name, new THREE.Quaternion()]))
   const extra = new THREE.Quaternion()
   const tilt = new THREE.Euler()
-  const faceWeights = Object.fromEntries(FACES.filter(face => face !== 'blink').map(face => [face, 0]))
+  /** The faces this model has (from its own expressions). */
+  let modelFaces = []
+  /** How strongly each of them shows right now, eased. */
+  let faceWeights = {}
   const size = new THREE.Vector3()
 
   /** The frame rate chosen in the menu. */
@@ -516,20 +534,23 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     holder.position.y = hop * (body ? body.getSize(size).y : 1.5) * 0.03
 
     // Faces: a held face wins, then a surprised poke, then the moment's face, else a soft smile.
-    const face = heldFace ?? (sincePoke < 0.45 ? 'surprised' : momentFace)
+    const face = faceFor(heldFace ?? (sincePoke < 0.45 ? 'surprised' : momentFace))
     const em = vrm.expressionManager
     if (em) {
+      const smile = faceFor('happy')
+      const blinkFace = blinkName()
       for (const name of Object.keys(faceWeights)) {
-        const want = face ? (name === face ? 1 : 0) : name === 'happy' ? (base === loops.sleepy ? 0 : SOFT_SMILE) : 0
+        const want = face ? (name === face ? 1 : 0) : name === smile && base !== loops.sleepy ? SOFT_SMILE : 0
         faceWeights[name] += (want - faceWeights[name]) * Math.min(1, dt * 8)
-        em.setValue(profile.faces[name] ?? name, faceWeights[name])
+        em.setValue(name, faceWeights[name])
       }
       if (t > nextBlink) {
         blinkEnd = t + 0.13
         nextBlink = t + 2 + Math.random() * 4 + (Math.random() < 0.2 ? -1.6 : 0)
       }
-      const blink = face === 'blink' || base === loops.sleepy || t < blinkEnd ? 1 : 0
-      em.setValue(profile.faces.blink ?? 'blink', blink)
+      if (blinkFace) {
+        em.setValue(blinkFace, (face && face === blinkFace) || base === loops.sleepy || t < blinkEnd ? 1 : 0)
+      }
     }
 
     vrm.update(dt)

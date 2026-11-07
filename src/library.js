@@ -3,6 +3,42 @@
 
 export const FACES = ['happy', 'angry', 'sad', 'surprised', 'relaxed', 'blink']
 
+/** Expressions that aren't faces: mouth shapes, gaze, one-eyed blinks, the neutral reset. */
+const NOT_FACES = new Set(['neutral', 'aa', 'ih', 'ou', 'ee', 'oh', 'lookUp', 'lookDown', 'lookLeft', 'lookRight', 'blinkLeft', 'blinkRight'])
+
+/**
+ * The faces a model really has, for the menu: standard ones first, then its custom ones, then
+ * blink. `expressions` is [{ name, binds }]; an expression that moves nothing is left out.
+ */
+export function faceList(expressions) {
+  const usable = expressions.filter(({ name, binds }) => binds > 0 && !NOT_FACES.has(name)).map(({ name }) => name)
+  const rank = name => {
+    const standard = FACES.indexOf(name)
+    return name === 'blink' ? 1000 : standard >= 0 ? standard : 100
+  }
+  return [...new Set(usable)].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
+}
+
+/**
+ * The model's expression for a face: the profile's mapping if it has one, else the same name,
+ * else the same name in other capitals (some models have a custom "Surprised"), else its first
+ * numbered variant (some only have happy01, happy02, …). Null if none.
+ */
+export function resolveFace(face, available, mapping = {}) {
+  if (!face) {
+    return null
+  }
+  const wanted = mapping[face] ?? face
+  if (available.includes(wanted)) {
+    return wanted
+  }
+  const lower = wanted.toLowerCase()
+  const numbered = available
+    .filter(name => name.toLowerCase().startsWith(lower) && /^[\s_-]*\d+$/.test(name.slice(lower.length)))
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+  return available.find(name => name.toLowerCase() === lower) ?? numbered[0] ?? null
+}
+
 const isText = value => typeof value === 'string' && value.trim() !== ''
 
 /** "my_dance-02" → "My dance 02". */

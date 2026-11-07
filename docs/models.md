@@ -11,6 +11,12 @@ YDCP shows any **VRM 0.x or 1.0** model (`.vrm`). To get one, including converti
 
 Add models with **Menu → Models → Add model…**, or copy `.vrm` files into the folder; YDCP notices them. Limit: 100 MB per model.
 
+## What a model has
+
+**Menu → Models → About this model…** says what the loaded model has and lacks: faces, blinking, hair and clothes physics, finger and eye bones, size, and the licence stored in its file. If something doesn't work on a model, look here first.
+
+Developers can get the same report for a whole folder: `npm run check:models -- ~/.ydcp/models`.
+
 ## Model profile (optional)
 
 A JSON file with the same name as the model, next to it: `my-model.vrm` + `my-model.json`. Every field is optional.
@@ -46,6 +52,8 @@ Some motions bring the hands up to the face. On a model with a big head or long 
 | `forward` | Brings the elbow forward so the hand stays in front of the hair |
 | `straighten` | Opens the elbow, so a hand folded across the face swings out beside it |
 | `pose` | Instead of turning the arm, blends it to a fixed pose: `upper` and `lower` arm Euler angles `[x, y, z]`. Example: `upper [-0.8, 0, 0.8]`, `lower [0, 1.8, 0]` holds the hand beside the cheek |
+
+**Expressions:** **Menu → Motions → Expressions** lists the expressions the loaded model really has, custom ones included. If a standard face isn't there, she just keeps her usual look for that moment; a `faces` mapping can point it at one of the model's custom expressions.
 
 **Tuning tip:** start with no fix, look at the motion, then try small values (0.2–0.4) and grow from there.
 

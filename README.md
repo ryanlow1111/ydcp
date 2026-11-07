@@ -231,6 +231,7 @@ Ready-made examples are in [`integrations/`](integrations/):
 
 | Problem | Try this |
 |---|---|
+| Something doesn't work on one model | Menu → **Models** → **About this model…** says what that model has and lacks |
 | Nothing appears after launch | No model yet: add one ([Add your model](#add-your-model)). Also check the menu bar or notification-area icon → **Show** |
 | "Can't be opened" (Mac) / "Windows protected your PC" | See [Download and install](#download-and-install) |
 | The model won't load / shows an error in the menu | Make sure it's a real `.vrm`, not a renamed `.fbx` or `.unitypackage`. The file must be under 100 MB. Re-export it from VRoid Studio, UniVRM or Blender |
