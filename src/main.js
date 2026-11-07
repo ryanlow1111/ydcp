@@ -14,6 +14,7 @@ import { createMood } from './mood.js'
 import {
   addModel,
   currentModel,
+  frameRate,
   listAnims,
   modelsFolder,
   moveWindowTo,
@@ -226,6 +227,7 @@ async function loadModel(name) {
   try {
     const [bytes, profileText] = await Promise.all([readModel(name), readProfile(name).catch(() => null)])
     await ensurePet()
+    pet.setFrameRate(await frameRate().catch(() => 60))
     canvas.hidden = false
     await pet.load(bytes, parseJson(profileText))
     model = name
@@ -279,6 +281,9 @@ async function start() {
         break
       case 'face':
         pet?.holdFace(id ?? null)
+        break
+      case 'frameRate':
+        pet?.setFrameRate(Number(id))
         break
       case 'about':
         showAbout()

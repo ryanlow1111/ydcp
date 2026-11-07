@@ -49,7 +49,7 @@ She can **optionally** react to an AI coding agent, such as cheering when a task
 |---|---|---|---|
 | App code (Rust, JS) | ✅ | MIT | Ours |
 | Built-in vibe loops (idle, sway, bop, sleepy) | ✅ | MIT | Generated in code (`makeLoops`), ours |
-| **Built-in moments** (wave, peace, cheer, shy, stretch) | ✅ | MIT | **New:** written in code from curves, like the vibe loops; no third-party files (§6.3) |
+| **Built-in moments** (wave, peace, shy) | ✅ | MIT | **New:** written in code from curves, like the vibe loops; no third-party files (§6.3) |
 | App icon, tray icon, UI art | ✅ | MIT or CC0 | Original |
 | Default VRM model | ❌ **decided: none** | — | Users bring their own model (VRoid Studio, VRoid Hub, BOOTH, or a converted VRChat avatar whose terms allow it). See the README |
 | VRoid VRMA_MotionPack (BOOTH 5512385) | ❌ | Free, **no redistribution** | Users download from BOOTH; we ship a `motions.json` preset for those files (the preset is our text, not their files) |
@@ -156,9 +156,8 @@ She can **optionally** react to an AI coding agent, such as cheering when a task
 ### 6.3 Motions: built-in and user library
 **Built-in, ours (MIT), no files needed:**
 - **Vibe loops:** idle, sway, bop, sleepy. Already written; the bop has the 100 BPM pulse and follow-through.
-- **New moments written as code clips** (same `sampledClip` approach). **Decided first set:** wave hello, peace sign beside the cheek, cheer (both arms up), shy (hands to cheeks), stretch.
-- They use the tuned arm poses from the prototype, written for normalized bones, so they work on any VRM.
-- **Faces:** happy, angry, relaxed, surprised, sad, blink. Bang-style moments use angry.
+- **New moments written as code clips** (same `sampledClip` approach). **Set:** wave hello, peace sign beside the cheek, shy. Hands are placed by where they should be, relative to her measured face and body (`body.js`), and solved for each model, so they fit any proportions.
+- - **Faces:** happy, angry, relaxed, surprised, sad, blink. Bang-style moments use angry.
 
 **User library:** any `.vrma` in `anims/` appears in the Motions menu and is watched for changes. `motions.json` is optional:
 ```json
@@ -177,7 +176,7 @@ She can **optionally** react to an AI coding agent, such as cheering when a task
 | `face` | Expression while playing | `happy` |
 | `line` | Said when she does it on her own or on a poke | none |
 | `random` | Joins her own and poke moments | `true` |
-| `onDone` | The cheer when an agent finishes | built-in cheer |
+| `onDone` | The cheer when an agent finishes | built-in Peace |
 | `loop` | Plays as a vibe loop | `false` |
 | `trim` | `"crouch"` or `{ "start": s, "end": s }` | none |
 | `speed` | Playback speed | `1` |
@@ -242,9 +241,11 @@ She can **optionally** react to an AI coding agent, such as cheering when a task
   - A file that hasn't changed in 30 minutes is ignored.
 
 ### 6.7 Performance
-- **Frame rate:** 30 fps cap and 15 fps while sleepy. `setPixelRatio(min(dpr, 2))`.
-- **Pausing:** render pauses when she's hidden or the screen is locked.
-- **Targets:** idle CPU under about 3% on an M1 or a mid-range Windows laptop; memory flat after 10 model switches.
+- **Frame rate:** 60 fps by default, with a menu option for 30; 15 fps while she dozes. `setPixelRatio(min(dpr, 2))`. A frame is only requested when one is due: requesting every display refresh and skipping kept WebKit's display timer running, which cost about 10% of a core with nothing drawn.
+- **Pausing:** she isn't drawn while hidden.
+- **Measured** (release build, M1, Medium window, MW Miku, % of one CPU core, app plus its WebKit processes): window not shown 0, 15 fps (the dozing rate, measured with a build flag) about 9, 30 fps about 22, 60 fps about 30.
+- **Original target missed:** the plan's "under about 3%" isn't reachable while she animates. Turning off hair physics or antialiasing changed almost nothing (about 29% either way), so the cost is WebKit presenting each frame, not her model. Revisit if it matters: a native renderer would be a much larger project.
+- **Still unmeasured:** memory after 10 model switches, Large size, Windows.
 
 ---
 
@@ -500,7 +501,7 @@ Make the repo public at v0.2.0 after the launch checklist (§13).
 3. ~~Licence~~ **Decided:** MIT.
 4. ~~Signing~~ **Decided:** start unsigned (Mac ad-hoc signed, §10.3). Revisit Apple and SignPath after going public.
 5. ~~Default model~~ **Decided:** none bundled; users add their own.
-6. ~~Built-in moments~~ **Decided:** wave, peace, cheer, shy, stretch.
+6. ~~Built-in moments~~ **Decided:** wave, peace, shy. Cheer and Stretch were built, then removed: they didn't look natural.
 7. ~~Agent link default~~ **Decided:** `off`.
 
 All open questions are answered. Next step: **M0, repo setup.**

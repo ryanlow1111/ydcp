@@ -21,6 +21,11 @@ export function versionProblems({ packageJson, cargoToml, tauriConf, tag }) {
   if (!/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(want ?? '')) {
     problems.push(`package.json version "${want}" is not a SemVer version (X.Y.Z).`)
   }
+  // Windows MSI installers only accept a numeric pre-release, up to 65535 (0.1.0-1, not 0.1.0-beta.1).
+  const pre = /^\d+\.\d+\.\d+-(.+)$/.exec(want ?? '')?.[1]
+  if (pre !== undefined && !(/^\d+$/.test(pre) && Number(pre) <= 65535)) {
+    problems.push(`package.json version "${want}": the Windows MSI build needs a numeric pre-release (like 0.1.0-1).`)
+  }
   const cargo = cargoVersion(cargoToml)
   if (cargo !== want) {
     problems.push(`src-tauri/Cargo.toml version "${cargo}" differs from package.json "${want}".`)

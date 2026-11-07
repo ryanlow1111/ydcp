@@ -70,19 +70,6 @@ describe('built-in motions', () => {
     }
   })
 
-  test('the tuned loops look exactly as before on a VRM 0.x model', () => {
-    // Before the VRM 1.0 conversion, a VRM 0.x model got: centre-line pitch flipped, all else as written.
-    const loops = makeLoops(fakeVrm(), true)
-    const sway = loops.sway
-    const at = (bone, frame) => sway.tracks.find(one => one.name === `Normalized_${bone}.quaternion`).values.slice(frame * 4, frame * 4 + 4)
-    // Prototype sway at t=0: clasped rightUpperArm [0, 0.4, -1.28]; head [0.02 (bow), y, 0].
-    const arm = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0.4, -1.28))
-    expect(at('rightUpperArm', 0)[0]).toBeCloseTo(arm.x)
-    expect(at('rightUpperArm', 0)[2]).toBeCloseTo(arm.z)
-    const head = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.02, Math.sin(0.5 * Math.PI * 2) * 0.05, Math.sin(0) * 0.1))
-    expect(at('head', 0)[0]).toBeCloseTo(head.x)
-  })
-
   test('on a VRM 1.0 model the arms rest down at her sides', () => {
     // Right arm points along -x at rest (T-pose). Lowered, it should point mostly down (-y).
     const idle = makeLoops(fakeVrm(), false).idle
@@ -90,5 +77,12 @@ describe('built-in motions', () => {
     const q = new THREE.Quaternion(values[0], values[1], values[2], values[3])
     const dir = new THREE.Vector3(-1, 0, 0).applyQuaternion(q)
     expect(dir.y).toBeLessThan(-0.8)
+  })
+
+  test('hands are never flat: every loop curls her fingers', () => {
+    const { idle } = makeLoops(fakeVrm())
+    const names = idle.tracks.map(track => track.name)
+    expect(names).toContain('Normalized_rightMiddleProximal.quaternion')
+    expect(names).toContain('Normalized_leftMiddleProximal.quaternion')
   })
 })

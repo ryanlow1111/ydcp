@@ -40,9 +40,11 @@ body {
 #bubble {
   position: fixed;
   top: 8px;
-  left: 50%;
-  max-width: calc(100% - 32px);
-  transform: translateX(-50%);
+  left: 8px;
+  right: 8px;
+  width: fit-content;
+  margin: 0 auto;
+  overflow-wrap: anywhere;
   padding: 6px 12px;
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -57,7 +59,7 @@ body {
 
 #bubble.hidden {
   opacity: 0;
-  transform: translateX(-50%) translateY(-4px);
+  transform: translateY(-4px);
 }
 
 .card {

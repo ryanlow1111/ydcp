@@ -7,6 +7,7 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm'
 import { VRMAnimationLoaderPlugin, VRMLookAtQuaternionProxy, createVRMAnimationClip } from '@pixiv/three-vrm-animation'
+import { defaultBody, measureBody } from './body.js'
 import { makeLoops, VIBES } from './moves.js'
 import { MOMENTS, MOMENT_IDS, makeMoments } from './moments.js'
 import { applyTrim, clearArms } from './fixes.js'
@@ -16,7 +17,9 @@ import { FACES, modelProfile } from './library.js'
  * At most this many frames a second: smooth on 60 Hz screens, and capped on 120 Hz ones to
  * spare the battery. Each frame costs about a millisecond.
  */
-const MAX_FPS = 60
+const DEFAULT_FPS = 60
+/** While she dozes, breathing slowly: this is plenty, and saves the battery. */
+const SLEEPY_FPS = 15
 /** Seconds a loop takes to cross-fade into the next. */
 const FADE = 0.6
 /** How long her little hop takes when poked, in seconds. */
@@ -87,6 +90,8 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
   let vrm0 = false
   let mixer = null
   let body = null
+  /** Her measured proportions, which every built-in pose is fitted to. */
+  let figure = defaultBody()
   let profile = modelProfile()
   /** Vibe loops by name, as actions. */
   let loops = {}
@@ -108,10 +113,11 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     const size = body.getSize(new THREE.Vector3())
     const center = body.getCenter(new THREE.Vector3())
     const half = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))
-    const fitHeight = (size.y * 1.3) / 2 / half / profile.scale
-    const fitWidth = (size.x * 1.2) / 2 / (half * camera.aspect) / profile.scale
+    const fitHeight = (size.y * 1.2) / 2 / half / profile.scale
+    // She's measured in her T-pose: her arms won't really reach that wide.
+    const fitWidth = (size.x * 0.78) / 2 / (half * camera.aspect) / profile.scale
     // Aim a little above her middle, so the spare room is above her head.
-    const aimY = center.y + size.y * 0.1
+    const aimY = center.y + size.y * 0.07
     camera.position.set(0, aimY, Math.max(fitHeight, fitWidth) + size.z)
     camera.lookAt(0, aimY, 0)
   }
@@ -131,7 +137,8 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
       return
     }
     next.reset().setEffectiveWeight(oneOff ? 0 : 1)
-    if (!oneOff) {
+    // The first loop starts at full weight: fading in from nothing would show her T-pose.
+    if (!oneOff && base) {
       next.fadeIn(FADE)
     }
     next.play()
@@ -250,10 +257,11 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
         endMoment()
       }
     })
-    for (const [name, clip] of Object.entries(makeLoops(vrm, vrm0))) {
+    figure = measureBody(vrm)
+    for (const [name, clip] of Object.entries(makeLoops(vrm, vrm0, figure))) {
       loops[name] = mixer.clipAction(clip)
     }
-    for (const [id, clip] of Object.entries(makeMoments(vrm, vrm0))) {
+    for (const [id, clip] of Object.entries(makeMoments(vrm, vrm0, figure))) {
       const { name, face, line } = MOMENTS[id]
       moments[id] = { id, name, face, line, random: true, action: mixer.clipAction(clip) }
     }
@@ -361,11 +369,11 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
 
   /**
    * Cheers (an agent finished): a file motion marked `onDone` if there is one, otherwise the
-   * built-in Cheer. Her line is said by the caller.
+   * built-in Peace. Her line is said by the caller.
    */
   function cheer() {
     const own = Object.values(moments).find(moment => moment.library && moment.onDone)
-    return playMoment(own?.id ?? 'cheer', { quiet: true })
+    return playMoment(own?.id ?? 'peace', { quiet: true })
   }
 
   /** Holds a face (one of FACES) until released with null. */
@@ -413,11 +421,31 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
   const faceWeights = Object.fromEntries(FACES.filter(face => face !== 'blink').map(face => [face, 0]))
   const size = new THREE.Vector3()
 
+  /** The frame rate chosen in the menu. */
+  let maxFps = DEFAULT_FPS
+  /** The frame rate she needs right now: slow while she dozes, unless a moment is playing. */
+  const fpsNow = () => ((asleep || base === loops.sleepy) && !oneOff ? Math.min(SLEEPY_FPS, maxFps) : maxFps)
+
+  /**
+   * Asks for the next frame only when one is due. Asking every display refresh and then
+   * skipping would keep the browser's display timer running, which costs nearly as much as
+   * drawing; so below full speed, a plain timer waits first.
+   */
+  function schedule() {
+    const spare = 1000 / fpsNow() - 1000 / 60
+    if (spare > 2) {
+      setTimeout(() => requestAnimationFrame(frame), spare)
+    } else {
+      requestAnimationFrame(frame)
+    }
+  }
+
   function frame(timestamp) {
-    requestAnimationFrame(frame)
+    schedule()
     timer.update(timestamp)
     sinceRender += timer.getDelta()
-    if (sinceRender < 1 / MAX_FPS - 0.002) {
+    // Screens faster than 60 Hz: skip refreshes to stay at the cap.
+    if (sinceRender < 1 / fpsNow() - 0.002) {
       return
     }
     const dt = Math.min(sinceRender, 0.1)
@@ -516,6 +544,10 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     setLibrary,
     playMoment,
     setVibe,
+    /** Sets the frame rate cap (the menu's 60 or 30). */
+    setFrameRate(fps) {
+      maxFps = fps > 0 ? fps : DEFAULT_FPS
+    },
     setAsleep,
     cheer,
     holdFace,
@@ -524,13 +556,13 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     catalogue,
     describe,
     /** For the dev page: the loaded model and camera. */
-    debug: () => ({ vrm, camera, vrm0 }),
+    debug: () => ({ vrm, camera, vrm0, figure }),
     /** For the dev page: tries `pose(t)` (right-arm style, see moments.js) for built-in moment `id`. */
     rebuildMoment(id, pose) {
       if (pose) {
         MOMENTS[id].pose = pose
       }
-      const clip = makeMoments(vrm, vrm0, [id])[id]
+      const clip = makeMoments(vrm, vrm0, figure, [id])[id]
       moments[id].action.stop()
       mixer.uncacheAction(moments[id].action.getClip())
       moments[id].action = mixer.clipAction(clip)
@@ -540,16 +572,16 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
      * Independent of frame rate, so poses can be measured even in a background tab.
      */
     freezeAt(id, t) {
-      const moment = moments[id]
-      if (!moment) {
+      const action = moments[id]?.action ?? loops[id]
+      if (!action) {
         return false
       }
       frozen = true
       mixer.stopAllAction()
       base = null
       oneOff = null
-      moment.action.reset().setEffectiveWeight(1).play()
-      moment.action.time = t
+      action.reset().setEffectiveWeight(1).play()
+      action.time = t
       mixer.update(0)
       vrm.update(0)
       renderer.render(scene, camera)

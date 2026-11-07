@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest'
 import * as THREE from 'three'
 import { modelProfile, motionEntries, parseJson, tidyName } from '../src/library.js'
-import { MOMENTS, MOMENT_IDS, blendPose, envelope, makeMoments } from '../src/moments.js'
+import { MOMENTS, MOMENT_IDS, makeMoments } from '../src/moments.js'
+import { defaultBody, solveArm, wristOf } from '../src/body.js'
 import { crouchEnd, trimClip } from '../src/fixes.js'
 
 const fakeVrm = () => ({
@@ -59,33 +60,18 @@ describe('model profiles', () => {
 })
 
 describe('built-in moments', () => {
-  test('the envelope rises, holds and falls back to nothing', () => {
-    expect(envelope(0, 3)).toBe(0)
-    expect(envelope(1.5, 3)).toBe(1)
-    expect(envelope(3, 3)).toBe(0)
-    expect(envelope(0.2, 3)).toBeGreaterThan(0)
+  test('the set is Wave, Peace and Shy (Cheer and Stretch were removed)', () => {
+    expect(MOMENT_IDS).toEqual(['wave', 'peace', 'shy'])
   })
 
-  test('blending moves only toward the target bones', () => {
-    const out = blendPose({ head: [0, 0, 0], spine: [1, 1, 1] }, { head: [1, 0, 0] }, 0.5)
-    expect(out.head).toEqual([0.5, 0, 0])
-    expect(out.spine).toEqual([1, 1, 1])
-  })
-
-  test('every moment is a valid clip that starts and ends in her resting pose', () => {
+  test('every moment is a valid clip of the right length', () => {
     const clips = makeMoments(fakeVrm())
     expect(Object.keys(clips)).toEqual(MOMENT_IDS)
-    const rest = makeMoments(fakeVrm(), false, ['wave']).wave
     for (const [id, clip] of Object.entries(clips)) {
       expect(clip.duration).toBe(MOMENTS[id].duration)
       for (const track of clip.tracks) {
         expect(track.values.every(Number.isFinite), `${id} ${track.name}`).toBe(true)
       }
-      // Frame 0: the envelope is 0, so arms are where they rest (same as any other moment's frame 0).
-      const arm = track => track.name === 'Normalized_rightUpperArm.quaternion'
-      const first = Array.from(clip.tracks.find(arm).values.slice(0, 4))
-      const restFirst = Array.from(rest.tracks.find(arm).values.slice(0, 4))
-      first.forEach((value, k) => expect(value).toBeCloseTo(restFirst[k], 5))
     }
   })
 
@@ -95,6 +81,63 @@ describe('built-in moments', () => {
       expect(moment.face).toBeTruthy()
       expect(moment.line).toBeTruthy()
     }
+  })
+})
+
+describe('placing her hands (fits any proportions)', () => {
+  const chibi = {
+    ...defaultBody(),
+    height: 1.6,
+    upperArm: 0.17,
+    lowerArm: 0.16,
+    shoulder: { right: [-0.1, 0.98, 0], left: [0.1, 0.98, 0] },
+  }
+  const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2])
+
+  for (const [name, body] of [['tall', defaultBody()], ['chibi', chibi]]) {
+    for (const side of ['right', 'left']) {
+      test(`${name}, ${side} arm: the wrist lands on a reachable target`, () => {
+        const shoulder = body.shoulder[side]
+        const reach = body.upperArm + body.lowerArm
+        const out = side === 'right' ? -1 : 1
+        for (const offset of [
+          [out * 0.4, 0.4, 0.2],
+          [out * 0.3, -0.6, 0.2],
+          [-out * 0.2, -0.5, 0.45],
+        ]) {
+          const target = shoulder.map((v, i) => v + offset[i] * reach)
+          expect(distance(wristOf(side, body, solveArm(side, body, target)), target)).toBeLessThan(0.002)
+        }
+      })
+    }
+  }
+
+  test('a target out of reach: the arm stretches toward it, and stays valid', () => {
+    const body = defaultBody()
+    const target = [-2, 1.17, 0]
+    const wrist = wristOf('right', body, solveArm('right', body, target))
+    expect(wrist.every(Number.isFinite)).toBe(true)
+    expect(wrist[0]).toBeLessThan(-0.5)
+  })
+
+  test('the elbow only bends one way: forward, about its own axis', () => {
+    const body = defaultBody()
+    const right = solveArm('right', body, [-0.2, 1.3, 0.1])
+    const left = solveArm('left', body, [0.2, 1.3, 0.1])
+    expect(right.lower[0]).toBe(0)
+    expect(right.lower[2]).toBe(0)
+    expect(right.lower[1]).toBeGreaterThan(0)
+    expect(left.lower[1]).toBeLessThan(0)
+  })
+
+  test('a raised hand with the elbow out shows her palm to the front, without a wrist twist', () => {
+    const body = defaultBody()
+    const { upper, lower } = solveArm('right', body, [-0.25, 1.35, 0.05], [-0.8, -1, 0.1])
+    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(...upper))
+    q.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(...lower)))
+    // A right palm faces -y in the T-pose.
+    const palm = new THREE.Vector3(0, -1, 0).applyQuaternion(q)
+    expect(palm.z).toBeGreaterThan(0.6)
   })
 })
 

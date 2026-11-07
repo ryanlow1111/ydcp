@@ -10,7 +10,7 @@ use tauri::menu::{CheckMenuItem, IsMenuItem, Menu, MenuItem, PredefinedMenuItem,
 use tauri::{AppHandle, Manager, Runtime};
 
 use crate::agent::AgentLink;
-use crate::settings::Size;
+use crate::settings::{self, Size};
 
 /// One motion or vibe in the menu.
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -45,6 +45,8 @@ pub struct MenuState {
     pub on_top: bool,
     pub visible: bool,
     pub agent_link: AgentLink,
+    /// 60 or 30 frames a second.
+    pub frame_rate: u32,
     /// Whether `~/.ydcp/state.json` exists (an agent hook has written it).
     pub agent_found: bool,
 }
@@ -61,6 +63,7 @@ impl Default for MenuState {
             on_top: true,
             visible: true,
             agent_link: AgentLink::Off,
+            frame_rate: settings::DEFAULT_FRAME_RATE,
             agent_found: false,
         }
     }
@@ -85,6 +88,7 @@ pub enum Pick {
     Size(String),
     OnTop,
     Agent(String),
+    FrameRate(String),
     OpenFolder,
     About,
     Quit,
@@ -107,6 +111,7 @@ impl Pick {
             "size" => Pick::Size(rest.to_string()),
             "on-top" => Pick::OnTop,
             "agent" => Pick::Agent(rest.to_string()),
+            "frame-rate" => Pick::FrameRate(rest.to_string()),
             "open-folder" => Pick::OpenFolder,
             "about" => Pick::About,
             "quit" => Pick::Quit,
@@ -233,6 +238,21 @@ pub fn build<R: Runtime, M: Manager<R>>(app: &M, state: &MenuState) -> tauri::Re
     }
     let sizes = Submenu::with_items(app, "Size", true, &refs(&size_items))?;
 
+    // Frame rate ▸
+    let rates = Submenu::with_items(
+        app,
+        "Frame rate",
+        true,
+        &[
+            &check("frame-rate:60", "60 fps (smooth)", state.frame_rate == 60)?,
+            &check(
+                "frame-rate:30",
+                "30 fps (saves power)",
+                state.frame_rate == 30,
+            )?,
+        ],
+    )?;
+
     // React to agent ▸ (off by default; for people who use an AI agent or a script).
     let mut agent_items: Vec<Box<dyn IsMenuItem<R>>> = Vec::new();
     for mode in AgentLink::ALL {
@@ -274,6 +294,7 @@ pub fn build<R: Runtime, M: Manager<R>>(app: &M, state: &MenuState) -> tauri::Re
             &models,
             &motions,
             &sizes,
+            &rates,
             &on_top,
             &agent,
             &separator()?,
@@ -327,6 +348,10 @@ mod tests {
         );
         assert_eq!(Pick::parse("size:large"), Some(Pick::Size("large".into())));
         assert_eq!(Pick::parse("agent:auto"), Some(Pick::Agent("auto".into())));
+        assert_eq!(
+            Pick::parse("frame-rate:30"),
+            Some(Pick::FrameRate("30".into()))
+        );
         assert_eq!(Pick::parse("nonsense"), None);
     }
 

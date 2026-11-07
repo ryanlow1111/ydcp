@@ -26,7 +26,7 @@ The smallest valid file:
 
 | Field | Values | Effect |
 |---|---|---|
-| `mood` (required) | `done` | She cheers (the motion marked `onDone` in `motions.json`, else the built-in Cheer), waking up first if she was asleep |
+| `mood` (required) | `done` | She cheers (the motion marked `onDone` in `motions.json`, else the built-in Peace), waking up first if she was asleep |
 | | `working`, `failed` | She wakes up if she was asleep, then keeps vibing |
 | | `idle` | Nothing (just its `line`, if any) |
 | | `sleepy` | She dozes off |

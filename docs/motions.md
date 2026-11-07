@@ -5,7 +5,9 @@
 These need no files and work with any VRM model:
 
 - **Vibes** (looping): Idle, Sway, Bop, Sleepy
-- **Moments** (played once): Wave, Peace, Cheer, Shy, Stretch
+- **Moments** (played once): Wave, Peace, Shy
+
+They're fitted to each model when it loads: YDCP measures her arms, shoulders and face, then places her hands for that body, so they land right on a chibi or a tall figure.
 
 Motions from files appear below the built-in ones in **Menu → Motions**. A file motion called `peace` never replaces the built-in Peace.
 
@@ -50,7 +52,7 @@ Optional. Keys are file names in the folder; every field is optional.
 | `line` | What she says when she does it by herself or when poked | None |
 | `credit` | Credit line shown in **About…** (e.g. what the pack's terms ask for) | None |
 | `random` | Whether she picks it by herself and on a poke | `true` |
-| `onDone` | Use it to cheer when an AI agent finishes (one motion) | The built-in Cheer |
+| `onDone` | Use it to cheer when an AI agent finishes (one motion) | The built-in Peace |
 | `loop` | Play it as a looping vibe instead of once | `false` |
 | `trim` | `"crouch"` (skip an opening crouch), or `{ "start": 1.5, "end": 6 }` in seconds | None |
 | `speed` | Playback speed | `1` |

@@ -18,6 +18,15 @@ pub struct Position {
     pub y: i32,
 }
 
+/// Frames a second unless the menu says otherwise.
+pub const DEFAULT_FRAME_RATE: u32 = 60;
+
+/// The frame rates the menu offers; anything else in the file falls back to the default.
+pub fn valid_frame_rate(rate: Option<u32>) -> u32 {
+    rate.filter(|rate| [60, 30].contains(rate))
+        .unwrap_or(DEFAULT_FRAME_RATE)
+}
+
 /// Her window's size: Small 0.75×, Medium 1×, Large 1.4× of 320 × 480.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -76,6 +85,8 @@ pub struct Settings {
     /// Whether she reacts to an agent's state file (off by default).
     #[serde(default, rename = "agentLink", skip_serializing_if = "Option::is_none")]
     pub agent_link: Option<AgentLink>,
+    #[serde(default, rename = "frameRate", skip_serializing_if = "Option::is_none")]
+    pub frame_rate: Option<u32>,
     /// Everything else in the file, kept untouched.
     #[serde(flatten)]
     pub other: Map<String, Value>,
@@ -214,6 +225,14 @@ mod tests {
         assert_eq!(end.position, Some(Position { x: 199, y: 0 }));
         assert_eq!(end.always_on_top, Some(false));
         assert_eq!(end.model.as_deref(), Some("a.vrm"));
+    }
+
+    #[test]
+    fn frame_rate_falls_back_to_60() {
+        assert_eq!(valid_frame_rate(Some(30)), 30);
+        assert_eq!(valid_frame_rate(Some(60)), 60);
+        assert_eq!(valid_frame_rate(Some(7)), 60);
+        assert_eq!(valid_frame_rate(None), 60);
     }
 
     #[test]

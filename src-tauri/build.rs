@@ -12,6 +12,7 @@ fn main() {
             "read_motions",
             "set_click_through",
             "current_model",
+            "frame_rate",
             "set_catalogue",
             "add_model",
         ]),

@@ -27,6 +27,12 @@ describe('version check', () => {
     expect(versionProblems({ ...files(), tag: 'v0.2.0' })[0]).toMatch(/Tag "v0.2.0"/)
   })
 
+  test('catches a pre-release the Windows MSI build would reject', () => {
+    expect(versionProblems(files('0.1.0-beta.1')).some(problem => problem.includes('MSI'))).toBe(true)
+    expect(versionProblems(files('0.1.0-1'))).toEqual([])
+    expect(versionProblems(files('0.1.0-70000')).some(problem => problem.includes('MSI'))).toBe(true)
+  })
+
   test('catches a non-SemVer version', () => {
     const bad = files('one')
     expect(versionProblems(bad).some(problem => problem.includes('SemVer'))).toBe(true)

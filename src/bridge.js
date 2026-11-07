@@ -28,6 +28,9 @@ export const readAnim = name => invoke('read_anim', { name })
 /** The motions folder's optional `motions.json`, as text or null. */
 export const readMotions = () => invoke('read_motions')
 
+/** The chosen frame rate (60 or 30). */
+export const frameRate = () => invoke('frame_rate')
+
 /** Tells the menu which motions, vibes and faces she has. */
 export const setCatalogue = catalogue => invoke('set_catalogue', { catalogue })
 

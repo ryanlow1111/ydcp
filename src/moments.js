@@ -1,57 +1,22 @@
 // Built-in cute moments: short motions she does on her own, when poked, or from the menu.
-// Written as code (no files needed), in VRM 1.0 space (see moves.js), so they work on any
-// VRM model. Arm poses are written for her right arm; `mirror` makes the left one.
+// Written as code (no files needed), in VRM 1.0 space (see moves.js). Hands are placed relative
+// to her measured face and body (body.js), so they land right on a chibi or a tall figure, and
+// her whole body takes part: weight shifts, chest and head turn with the gesture.
 //
-// Each moment is a whole-body clip: her resting, breathing pose plus the moment's own parts,
-// so nothing snaps to a T-pose while it plays. The mixer fades it in and back out.
+// Each moment is a whole-body clip; the mixer fades it in over her vibe and back out.
 
-import { mirror, restPose, sampledClip, wave } from './moves.js'
+import { defaultBody, solveArm } from './body.js'
+import { RELAXED_HANDS, armsDown, bothSides, breathing, combine, curledFingers, leftOf, sampledClip, stance, wave } from './moves.js'
 
-/** 0 → 1 → 0 over a moment: in over `rise` seconds, out over the last `fall` seconds. */
-export function envelope(t, duration, rise = 0.35, fall = 0.45) {
-  const smooth = x => x * x * (3 - 2 * x)
-  if (t < rise) {
-    return smooth(t / rise)
-  }
-  if (t > duration - fall) {
-    return smooth(Math.max(0, duration - t) / fall)
-  }
-  return 1
+/** Arms from wrist targets: { upper, lower } per side, as bones. */
+const arm = (side, body, target, pole) => {
+  const { upper, lower } = solveArm(side, body, target, pole)
+  return { [`${side}UpperArm`]: upper, [`${side}LowerArm`]: lower }
 }
-
-/** Blends two poses: `from` toward `to` by `k` (0..1), bone by bone (missing bones count as 0). */
-export function blendPose(from, to, k) {
-  const out = { ...from }
-  for (const [bone, value] of Object.entries(to)) {
-    const base = from[bone] ?? [0, 0, 0]
-    out[bone] = base.map((v, i) => v + (value[i] - v) * k)
-  }
-  return out
-}
-
-/** Right-arm bones with a pose, plus the mirrored left-arm ones. */
-function bothArms(right) {
-  const out = {}
-  for (const [bone, value] of Object.entries(right)) {
-    out[bone] = value
-    out[bone.replace(/^right/, 'left')] = mirror(value)
-  }
-  return out
-}
-
-/** Curled fingers, written for the right hand (VRM 1.0: +z curls a right finger toward the palm). */
-const curl = (finger, amount) => ({
-  [`right${finger}Proximal`]: [0, 0, amount],
-  [`right${finger}Intermediate`]: [0, 0, amount * 1.1],
-  [`right${finger}Distal`]: [0, 0, amount * 0.8],
-})
-
-/** The peace sign's hand: index and middle up, ring and little curled. */
-const peaceHand = { ...curl('Ring', 1.2), ...curl('Little', 1.2), rightThumbProximal: [0, -0.4, 0.3], rightThumbDistal: [0, -0.5, 0] }
 
 /**
- * Each moment: its menu name, face, what she says, length in seconds, and `pose(t)` giving the
- * moment's own bones at time t (blended over her resting pose by the envelope).
+ * Each moment: menu name, face, what she says, length in seconds, and `pose(t, body)` giving
+ * her whole body at time t.
  */
 export const MOMENTS = {
   wave: {
@@ -59,45 +24,48 @@ export const MOMENTS = {
     face: 'happy',
     line: 'Hi hi~ 👋',
     duration: 2.8,
-    pose: t => ({
-      rightShoulder: [0, 0, -0.12],
-      rightUpperArm: [-0.85, 0, 0.15],
-      rightLowerArm: [0, 1.55 + wave(t, 0.45) * 0.28, 0],
-      rightHand: [0, 0, wave(t, 0.45, 0.1) * 0.25],
-      head: [0, 0.08, 0.07],
-      spine: [0, 0, -0.03],
-    }),
+    pose: (t, body) => {
+      const { face, height } = body
+      // The forearm swings from the elbow, side to side, with the hand following a beat later.
+      const swing = wave(t, 0.6)
+      return combine(
+        breathing(t),
+        stance(0.9, -1),
+        { leftUpperArm: armsDown(body, t).leftUpperArm, leftLowerArm: armsDown(body, t).leftLowerArm },
+        arm('right', body, [-(face.halfWidth + height * 0.085 + swing * height * 0.028), face.eyeY + height * 0.02, height * 0.05], [-0.8, -1, 0.1]),
+        leftOf(curledFingers({})),
+        curledFingers({ index: 0.06, middle: 0.08, ring: 0.1, little: 0.12, thumb: 0.05 }),
+        {
+          rightHand: [0, 0, wave(t, 0.6, 0.12) * 0.22],
+          rightShoulder: [0, 0, -0.06],
+          chest: [0, 0.06, 0.015],
+          neck: [0, -0.02, 0.03],
+          head: [0, 0.05, 0.08],
+        },
+      )
+    },
   },
   peace: {
     name: 'Peace',
     face: 'happy',
     line: 'Peace! ✌️',
     duration: 3,
-    pose: t => ({
-      rightUpperArm: [-0.8, 0, 0.8],
-      rightLowerArm: [0, 1.8, 0],
-      rightHand: [0, 0, wave(t, 1.5) * 0.05],
-      ...peaceHand,
-      head: [0.03, 0.06, 0.12],
-      neck: [0, 0, 0.05],
-    }),
-  },
-  cheer: {
-    name: 'Cheer',
-    face: 'happy',
-    line: 'Yay!! ✨',
-    duration: 2.6,
-    pose: t => {
-      const pump = Math.max(0, wave(t, 0.5)) * 0.18
-      return {
-        ...bothArms({
-          rightShoulder: [0, 0, -0.2],
-          rightUpperArm: [0, 0, -0.72 - pump],
-          rightLowerArm: [0, 0.25, 0],
-        }),
-        spine: [-0.04, 0, 0],
-        head: [-0.1, 0, 0],
-      }
+    pose: (t, body) => {
+      const { face, height } = body
+      return combine(
+        breathing(t),
+        stance(1, -1),
+        { leftUpperArm: armsDown(body, t).leftUpperArm, leftLowerArm: armsDown(body, t).leftLowerArm },
+        arm('right', body, [-(face.halfWidth * 1.05 + height * 0.04), face.eyeY - height * 0.05, face.front * 0.35 + height * 0.05], [-0.8, -1, 0.15]),
+        leftOf(curledFingers({})),
+        curledFingers({ index: 0, middle: 0, ring: 1.15, little: 1.15, thumb: 0.55 }),
+        {
+          rightHand: [0, 0, 0.08 + wave(t, 1.5) * 0.04],
+          chest: [0, 0.05, 0.02],
+          neck: [0, 0, 0.04],
+          head: [0.02, 0.05, 0.13],
+        },
+      )
     },
   },
   shy: {
@@ -105,34 +73,29 @@ export const MOMENTS = {
     face: 'relaxed',
     line: 'E-eh? Don’t stare so much…',
     duration: 3.2,
-    pose: t => ({
-      ...bothArms({
-        rightUpperArm: [-1.3, -0.25, 0.6],
-        rightLowerArm: [0, 2.1, 0],
-        rightHand: [0, 0, 0.15],
-      }),
-      head: [0.16, wave(t, 1.6) * 0.06, 0.12],
-      neck: [0.08, 0, 0.05],
-      spine: [0.05, 0, wave(t, 1.6, 0.25) * 0.03],
-    }),
-  },
-  stretch: {
-    name: 'Stretch',
-    face: 'relaxed',
-    line: 'Mmmh~ stretch!',
-    duration: 3.6,
-    pose: t => {
-      const lean = Math.sin(Math.min(1, Math.max(0, (t - 0.6) / 2.4)) * Math.PI * 2) * 0.13
-      return {
-        ...bothArms({
-          rightShoulder: [0, 0, -0.25],
-          rightUpperArm: [0, 0, -1.45],
-          rightLowerArm: [0, 0.15, 0],
+    pose: (t, body) => {
+      const { face, height, frontZ, shoulder } = body
+      // Hands together in front of her chest, shoulders drawn in, knees together, looking down.
+      const y = Math.min(shoulder.right[1] - height * 0.035, face.eyeY - height * 0.07)
+      const z = Math.max(frontZ, face.front * 0.5) + height * 0.035
+      return combine(
+        breathing(t),
+        arm('right', body, [-height * 0.016, y, z + height * 0.005], [-1, -0.9, -0.15]),
+        arm('left', body, [height * 0.016, y - height * 0.006, z], [1, -0.9, -0.15]),
+        RELAXED_HANDS,
+        bothSides({
+          rightShoulder: [0, 0.05, 0.05],
+          rightUpperLeg: [0, 0.05, 0.035],
+          rightFoot: [0, -0.03, 0],
         }),
-        spine: [-0.03, 0, lean],
-        chest: [-0.03, 0, lean * 0.6],
-        head: [-0.06, 0, -lean * 0.5],
-      }
+        {
+          hips: [0, wave(t, 1.6) * 0.03, wave(t, 1.6, 0.25) * 0.012],
+          spine: [0.04, 0, 0],
+          chest: [0.03, 0, 0],
+          neck: [0.08, 0, 0.05],
+          head: [0.16, wave(t, 1.6) * 0.06 + 0.08, 0.1],
+        },
+      )
     },
   },
 }
@@ -141,17 +104,11 @@ export const MOMENTS = {
 export const MOMENT_IDS = Object.keys(MOMENTS)
 
 /** Builds the built-in moment clips (all, or just `ids`) for a loaded model. */
-export function makeMoments(vrm, vrm0 = false, ids = MOMENT_IDS) {
+export function makeMoments(vrm, vrm0 = false, body = defaultBody(), ids = MOMENT_IDS) {
   const clips = {}
   for (const id of ids) {
     const moment = MOMENTS[id]
-    clips[id] = sampledClip(
-      vrm,
-      id,
-      moment.duration,
-      t => blendPose(restPose(t), moment.pose(t), envelope(t, moment.duration)),
-      vrm0,
-    )
+    clips[id] = sampledClip(vrm, id, moment.duration, t => moment.pose(t, body), vrm0)
   }
   return clips
 }

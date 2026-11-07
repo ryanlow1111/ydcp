@@ -19,6 +19,7 @@
     "allow-read-motions",
     "allow-set-click-through",
     "allow-current-model",
+    "allow-frame-rate",
     "allow-set-catalogue",
     "allow-add-model"
   ]

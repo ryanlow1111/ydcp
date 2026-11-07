@@ -171,6 +171,7 @@ YDCP only reads your model from your own computer. It never uploads, shares or m
 | Pick a motion | Menu → **Motions** → a moment, a vibe, or an expression |
 | Change model | Menu → **Models** |
 | Keep or stop always-on-top | Menu → **Always on top** |
+| Save power on a laptop | Menu → **Frame rate** → 30 fps |
 | Hide / show | Menu → **Show / Hide** |
 
 When you leave the mouse alone for about 10 minutes she gets sleepy, and she wakes up when you're back.
@@ -179,7 +180,7 @@ When you leave the mouse alone for about 10 minutes she gets sleepy, and she wak
 
 ## Motions
 
-**Built in (no files needed):** vibes (Idle, Sway, Bop, Sleepy) and moments (Wave, Peace, Cheer, Shy, Stretch). They work with any VRM model.
+**Built in (no files needed):** vibes (Idle, Sway, Bop, Sleepy) and moments (Wave, Peace, Shy). They work with any VRM model.
 
 **Add more:** put `.vrma` files (VRM Animation) into the motions folder, or use **Motions → Add motions…**:
 

@@ -5,28 +5,19 @@
 // model faces +z, her left arm points along +x. In that space, for example:
 //   head/spine +x bows forward · rightUpperArm +z lowers the right arm (-z raises it)
 //   leftUpperArm -z lowers the left arm · rightLowerArm +y bends the right elbow forward.
+// Arms are placed by where the hand should be and solved for each body (body.js), so they fit
+// any proportions.
 // A VRM 0.x skeleton faces the other way (turned 180° about y), so for those models every
 // rotation's x and z are flipped (`vrm0`), exactly as three-vrm-animation does for .vrma clips.
 
 import * as THREE from 'three'
+import { defaultBody, solveArm } from './body.js'
 
 /** The body's centre line, hips to head. */
 export const CENTRE_LINE = new Set(['hips', 'spine', 'chest', 'upperChest', 'neck', 'head'])
 
 /** The same pose on the other side of the body: a right-arm pose made into a left-arm one. */
 export const mirror = ([x, y, z]) => [x, -y, -z]
-
-/**
- * Converts poses written in the prototype's original space to VRM 1.0 space. The vibe loops
- * were tuned by eye on a VRM 0.x model, with the centre line's pitch already written VRM 1.0
- * style; this keeps every one of those tuned numbers exactly as it was.
- */
-function fromPrototype(pose) {
-  return t =>
-    Object.fromEntries(
-      Object.entries(pose(t)).map(([bone, [x, y, z]]) => [bone, CENTRE_LINE.has(bone) ? [x, y, -z] : [-x, y, -z]]),
-    )
-}
 
 /** Every loop lasts a whole number of each rhythm in it, so its end joins its start smoothly. */
 export const LOOP = 24
@@ -66,49 +57,145 @@ export function sampledClip(vrm, name, duration, pose, vrm0 = false) {
   )
 }
 
-/** Arms at her sides; each part breathes and sways on its own rhythm (prototype space). */
-const rest = (t, droop = 0) => ({
-  hips: [0, wave(t, 8, 0.1) * 0.03, wave(t, 8) * 0.02],
-  spine: [wave(t, 4) * 0.02 + droop * 0.5, 0, wave(t, 8, 0.3) * -0.015],
-  chest: [wave(t, 4, 0.15) * 0.025 + droop * 0.4, wave(t, 8, 0.6) * 0.02, 0],
-  leftShoulder: [0, 0, wave(t, 4, 0.2) * 0.02 - droop * 0.1],
-  rightShoulder: [0, 0, -wave(t, 4, 0.2) * 0.02 + droop * 0.1],
-  leftUpperArm: [wave(t, 8, 0.4) * 0.04, 0, 1.2 - wave(t, 4, 0.25) * 0.025 + droop * 0.1],
-  rightUpperArm: [wave(t, 8, 0.9) * 0.04, 0, -1.2 + wave(t, 4, 0.25) * 0.025 - droop * 0.1],
-  leftLowerArm: [0, -0.2 + wave(t, 8, 0.5) * 0.04, 0],
-  rightLowerArm: [0, 0.2 + wave(t, 8, 0.0) * 0.04, 0],
-  neck: [droop * 0.6, wave(t, 8, 0.7) * 0.05, wave(t, 8, 0.2) * 0.02],
-  head: [wave(t, 4, 0.35) * 0.015 + droop * 0.4, wave(t, 8, 0.45) * 0.06, wave(t, 8, 0.85) * 0.04],
-})
-
-/** Hands clasped in front of her (prototype space). */
-const clasped = {
-  leftUpperArm: [0, -0.4, 1.28],
-  rightUpperArm: [0, 0.4, -1.28],
-  leftLowerArm: [0, -0.9, 0],
-  rightLowerArm: [0, 0.9, 0],
-  leftHand: [0, 0, 0.2],
-  rightHand: [0, 0, -0.2],
+/** Adds poses together, bone by bone (for small angles, that's combining the turns). */
+export function combine(...poses) {
+  const out = {}
+  for (const pose of poses) {
+    for (const [bone, [x, y, z]] of Object.entries(pose)) {
+      const was = out[bone] ?? [0, 0, 0]
+      out[bone] = [was[0] + x, was[1] + y, was[2] + z]
+    }
+  }
+  return out
 }
 
-/** Her resting, breathing pose in VRM 1.0 space, for building other motions on. */
-export const restPose = fromPrototype(t => rest(t))
+/** A right-side pose (bones named right…) plus its mirror image on the left. */
+export function bothSides(right) {
+  const out = {}
+  for (const [bone, value] of Object.entries(right)) {
+    out[bone] = value
+    out[bone.replace(/^right/, 'left')] = mirror(value)
+  }
+  return out
+}
 
-/** The vibe loops: idle, sway, bop and sleepy, each `LOOP` seconds long. */
-export function makeLoops(vrm, vrm0 = false) {
-  const clip = (name, pose) => sampledClip(vrm, name, LOOP, fromPrototype(pose), vrm0)
+/** One hand's fingers, curled by these amounts (written for the right hand: +z curls). */
+export function curledFingers({ index = 0.25, middle = 0.35, ring = 0.45, little = 0.5, thumb = 0.15 }) {
+  const finger = (name, amount) => ({
+    [`right${name}Proximal`]: [0, 0, amount],
+    [`right${name}Intermediate`]: [0, 0, amount * 1.2],
+    [`right${name}Distal`]: [0, 0, amount * 0.8],
+  })
+  return {
+    ...finger('Index', index),
+    ...finger('Middle', middle),
+    ...finger('Ring', ring),
+    ...finger('Little', little),
+    rightThumbProximal: [0, -thumb, thumb],
+    rightThumbDistal: [0, -thumb, 0],
+  }
+}
 
-  const idle = clip('idle', t => rest(t))
+/** The right-side bones of a right-hand pose, mirrored for the left hand. */
+export function leftOf(right) {
+  return Object.fromEntries(Object.entries(right).map(([bone, value]) => [bone.replace(/^right/, 'left'), mirror(value)]))
+}
 
-  // Sway: hands clasped, rocking side to side, head tilting the other way with each rock.
+/** Relaxed hands: gently curled fingers, never flat like a mannequin's. */
+export const RELAXED_HANDS = bothSides(curledFingers({}))
+
+/** Her body breathing and swaying, each part on its own rhythm. `droop` slumps her forward. */
+export const breathing = (t, droop = 0) => ({
+  hips: [0, wave(t, 8, 0.1) * 0.03, -wave(t, 8) * 0.02],
+  spine: [wave(t, 4) * 0.02 + droop * 0.5, 0, wave(t, 8, 0.3) * 0.015],
+  chest: [wave(t, 4, 0.15) * 0.025 + droop * 0.4, wave(t, 8, 0.6) * 0.02, 0],
+  rightShoulder: [0, 0, wave(t, 4, 0.2) * 0.02 - droop * 0.1],
+  leftShoulder: [0, 0, -wave(t, 4, 0.2) * 0.02 + droop * 0.1],
+  neck: [droop * 0.6, wave(t, 8, 0.7) * 0.05, -wave(t, 8, 0.2) * 0.02],
+  head: [wave(t, 4, 0.35) * 0.015 + droop * 0.4, wave(t, 8, 0.45) * 0.06, -wave(t, 8, 0.85) * 0.04],
+})
+
+/**
+ * How people really stand: weight on one leg, the other knee soft, hips tipped one way and
+ * shoulders the other. `side` 1 puts the weight on her right leg, -1 on her left. The legs turn
+ * back against the hips, so her feet stay on the ground.
+ */
+export function stance(amount = 1, side = 1) {
+  const tip = -0.045 * amount * side
+  const relaxed = side > 0 ? 'left' : 'right'
+  return combine(
+    {
+      hips: [0, 0.05 * amount * side, tip],
+      spine: [0, -0.02 * amount * side, -tip * 0.6],
+      chest: [0, -0.03 * amount * side, -tip * 0.5],
+      neck: [0, 0, -tip * 0.3],
+      rightUpperLeg: [0, 0, -tip],
+      leftUpperLeg: [0, 0, -tip],
+    },
+    {
+      [`${relaxed}UpperLeg`]: [-0.11 * amount, 0, 0],
+      [`${relaxed}LowerLeg`]: [0.2 * amount, 0, 0],
+      [`${relaxed}Foot`]: [-0.09 * amount, 0, 0],
+    },
+  )
+}
+
+/** Both arms from where each wrist should be; `targets(side)` gives [x, y, z]; `pole(side)` the elbow's lean. */
+function armsTo(body, targets, pole) {
+  const out = {}
+  for (const side of ['right', 'left']) {
+    const { upper, lower } = solveArm(side, body, targets(side), pole(side))
+    out[`${side}UpperArm`] = upper
+    out[`${side}LowerArm`] = lower
+  }
+  return out
+}
+
+const sideSign = side => (side === 'right' ? -1 : 1)
+
+/** Arms hanging by her sides, clear of her body and skirt, elbows soft and a little back. */
+export function armsDown(body, t = 0) {
+  const reach = body.upperArm + body.lowerArm
+  return armsTo(
+    body,
+    side => {
+      const shoulder = body.shoulder[side]
+      const out = Math.max(Math.abs(shoulder[0]) * 1.05, body.clearX + body.height * 0.02)
+      return [sideSign(side) * out, shoulder[1] - reach * 0.93, body.height * 0.018 + wave(t, 8, side === 'right' ? 0.9 : 0.4) * body.height * 0.006]
+    },
+    side => [sideSign(side) * 0.5, 0, -1],
+  )
+}
+
+/** Hands held together in front of her, resting on her skirt or lower belly. */
+export function armsClasped(body, lift = 0) {
+  return armsTo(
+    body,
+    side => [sideSign(side) * body.height * 0.012, body.hipsY + body.height * 0.015 + lift, body.frontZ + body.height * (side === 'right' ? 0.024 : 0.016)],
+    side => [sideSign(side) * 0.8, -0.3, -0.5],
+  )
+}
+
+/** The vibe loops: idle, sway, bop and sleepy, each `LOOP` seconds long, fitted to `body`. */
+export function makeLoops(vrm, vrm0 = false, body = defaultBody()) {
+  const clip = (name, pose) => sampledClip(vrm, name, LOOP, pose, vrm0)
+  const clasped = armsClasped(body)
+
+  // Idle: arms down, weight easing from one leg's side now and then.
+  const idle = clip('idle', t =>
+    combine(breathing(t), stance(0.85 + wave(t, 12) * 0.15), armsDown(body, t), RELAXED_HANDS),
+  )
+
+  // Sway: hands together, rocking side to side, head tilting the other way with each rock.
   const sway = clip('sway', t => ({
-    ...rest(t),
-    ...clasped,
-    hips: [0, wave(t, 6, 0.25) * 0.05, wave(t, 3) * 0.06],
-    spine: [wave(t, 1.5) * 0.01, 0, wave(t, 3) * -0.05],
-    chest: [0, 0, wave(t, 3) * -0.03],
-    neck: [0, wave(t, 6) * 0.04, wave(t, 3) * 0.04],
-    head: [0.02, wave(t, 6, 0.5) * 0.05, wave(t, 3) * 0.1],
+    ...combine(breathing(t), stance(0.5), clasped, RELAXED_HANDS),
+    hips: [0, wave(t, 6, 0.25) * 0.05, -wave(t, 3) * 0.06],
+    spine: [wave(t, 1.5) * 0.01, 0, wave(t, 3) * 0.05],
+    chest: [0, 0, wave(t, 3) * 0.03],
+    neck: [0, wave(t, 6) * 0.04, -wave(t, 3) * 0.04],
+    head: [0.02, wave(t, 6, 0.5) * 0.05, -wave(t, 3) * 0.1],
+    rightUpperLeg: [0, 0, wave(t, 3) * 0.06],
+    leftUpperLeg: [0, 0, wave(t, 3) * 0.06],
   }))
 
   // Bop: humming along to a tune in her head at an easy 100 BPM. Each nod dips quickly and
@@ -127,26 +214,24 @@ export function makeLoops(vrm, vrm0 = false) {
   const bop = clip('bop', t => {
     const g = groove(t)
     return {
-      ...rest(t),
-      ...clasped,
-      hips: [0, wave(t, 8) * 0.03, wave(t, BAR) * 0.035 * g],
-      spine: [pulse(t) * 0.015 * g, 0, wave(t, BAR, 0.05) * -0.025 * g],
-      chest: [pulse(t - 0.03) * 0.025 * g, wave(t, 8, 0.3) * 0.025, wave(t, BAR, 0.1) * -0.015 * g],
-      leftShoulder: [0, 0, lift(t, 1) * 0.05 * g],
-      rightShoulder: [0, 0, -lift(t, -1) * 0.05 * g],
-      leftLowerArm: [0, -0.9 - pulse(t - 0.05) * 0.03 * g, 0],
-      rightLowerArm: [0, 0.9 + pulse(t - 0.05) * 0.03 * g, 0],
-      neck: [pulse(t - 0.07) * 0.04 * g, wave(t, 8, 0.6) * 0.04, wave(t, BAR, 0.2) * 0.03 * g],
-      head: [0.02 + pulse(t - 0.11) * 0.06 * g, wave(t, 8, 0.75) * 0.07, wave(t, BAR, 0.25) * 0.06 * g + wave(t, 12) * 0.03],
+      ...combine(breathing(t), armsClasped(body, -pulse(t - 0.05) * body.height * 0.004 * g), RELAXED_HANDS),
+      hips: [0, wave(t, 8) * 0.03, -wave(t, BAR) * 0.035 * g],
+      spine: [pulse(t) * 0.015 * g, 0, wave(t, BAR, 0.05) * 0.025 * g],
+      chest: [pulse(t - 0.03) * 0.025 * g, wave(t, 8, 0.3) * 0.025, wave(t, BAR, 0.1) * 0.015 * g],
+      leftShoulder: [0, 0, -lift(t, 1) * 0.05 * g],
+      rightShoulder: [0, 0, lift(t, -1) * 0.05 * g],
+      neck: [pulse(t - 0.07) * 0.04 * g, wave(t, 8, 0.6) * 0.04, -wave(t, BAR, 0.2) * 0.03 * g],
+      head: [0.02 + pulse(t - 0.11) * 0.06 * g, wave(t, 8, 0.75) * 0.07, -wave(t, BAR, 0.25) * 0.06 * g - wave(t, 12) * 0.03],
+      rightUpperLeg: [0, 0, wave(t, BAR) * 0.035 * g],
+      leftUpperLeg: [0, 0, wave(t, BAR) * 0.035 * g],
     }
   })
 
   // Sleepy: drooping, head tipped to one side, slow breaths.
   const sleepy = clip('sleepy', t => ({
-    ...rest(t, 0.1),
-    ...clasped,
+    ...combine(breathing(t, 0.1), stance(0.5), clasped, RELAXED_HANDS),
     spine: [0.06 + wave(t, 6) * 0.035, 0, 0],
-    head: [0.35 + wave(t, 6, 0.1) * 0.04, 0, 0.28],
+    head: [0.35 + wave(t, 6, 0.1) * 0.04, 0, -0.28],
   }))
 
   return { idle, sway, bop, sleepy }

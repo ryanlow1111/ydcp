@@ -188,6 +188,7 @@ fn on_pick<R: Runtime>(app: &AppHandle<R>, pick: Pick) {
                 } else {
                     window.show()
                 };
+                app.state::<cursor::Geometry>().refresh(&window);
                 if let Ok(mut state) = app.state::<SharedMenu>().0.lock() {
                     state.visible = !visible;
                 }
@@ -264,6 +265,15 @@ fn on_pick<R: Runtime>(app: &AppHandle<R>, pick: Pick) {
             save_setting(app, |settings| settings.agent_link = Some(mode));
             menu::refresh(app);
         }
+        Pick::FrameRate(ref id) => {
+            let rate = settings::valid_frame_rate(id.parse().ok());
+            if let Ok(mut state) = app.state::<SharedMenu>().0.lock() {
+                state.frame_rate = rate;
+            }
+            save_setting(app, |settings| settings.frame_rate = Some(rate));
+            menu::refresh(app);
+            let _ = app.emit_to("main", "pick", pick);
+        }
         Pick::OpenFolder => open_folder(app),
         Pick::Quit => app.exit(0),
     }
@@ -307,6 +317,15 @@ fn current_model<R: Runtime>(app: AppHandle<R>) -> Option<String> {
     app.state::<SharedMenu>().0.lock().ok()?.model.clone()
 }
 
+/// The chosen frame rate.
+#[tauri::command]
+fn frame_rate<R: Runtime>(app: AppHandle<R>) -> u32 {
+    app.state::<SharedMenu>()
+        .0
+        .lock()
+        .map_or(settings::DEFAULT_FRAME_RATE, |state| state.frame_rate)
+}
+
 /// The front end tells the menu which motions, vibes and faces it has.
 #[tauri::command]
 fn set_catalogue<R: Runtime>(app: AppHandle<R>, catalogue: Catalogue) {
@@ -328,6 +347,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(cursor::PendingMove::default())
+        .manage(cursor::Geometry::default())
         .manage(SharedMenu::default())
         .invoke_handler(tauri::generate_handler![
             assets::models_folder,
@@ -339,13 +359,21 @@ pub fn run() {
             assets::read_motions,
             set_click_through,
             current_model,
+            frame_rate,
             set_catalogue,
             add_model
         ])
-        .on_window_event(|window, event| {
-            if let WindowEvent::Moved(position) = event {
+        .on_window_event(|window, event| match event {
+            WindowEvent::Moved(position) => {
                 window.state::<cursor::PendingMove>().record(*position);
+                window.state::<cursor::Geometry>().moved(*position);
             }
+            WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => {
+                if let Some(webview) = window.app_handle().get_webview_window(window.label()) {
+                    window.state::<cursor::Geometry>().refresh(&webview);
+                }
+            }
+            _ => {}
         })
         .setup(|app| {
             // A desktop pet, not a regular app: no Dock icon, no app menu.
@@ -369,6 +397,7 @@ pub fn run() {
             let size = saved.size.unwrap_or_default();
             let on_top = saved.always_on_top.unwrap_or(true);
             let agent_link = saved.agent_link.unwrap_or_default();
+            let frame_rate = settings::valid_frame_rate(saved.frame_rate);
             if let Ok(mut state) = app.state::<SharedMenu>().0.lock() {
                 *state = MenuState {
                     models,
@@ -376,6 +405,7 @@ pub fn run() {
                     size,
                     on_top,
                     agent_link,
+                    frame_rate,
                     ..MenuState::default()
                 };
             }
