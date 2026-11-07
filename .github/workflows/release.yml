@@ -4,9 +4,13 @@ name: Release
 # If any platform fails, the draft is left unpublished. A maintainer tests the draft,
 # then presses Publish once, so both platforms go live at the same time.
 
+# "Run workflow" (workflow_dispatch) is a test build: it builds every platform from a branch,
+# with no tag and no release, to prove the builds work before tagging.
+
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -20,6 +24,7 @@ concurrency:
 jobs:
   draft:
     name: Create draft release
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -54,12 +59,16 @@ jobs:
   build:
     name: Build (${{ matrix.name }})
     needs: draft
+    # Runs after the draft, or by itself in a test build (where the draft job is skipped).
+    if: ${{ !cancelled() && (needs.draft.result == 'success' || needs.draft.result == 'skipped') }}
     permissions:
       contents: write
       id-token: write
       attestations: write
     strategy:
-      fail-fast: true
+      # Every platform finishes, so one run shows every problem. Nothing is published either
+      # way: the release stays a draft until a maintainer publishes it.
+      fail-fast: false
       matrix:
         include:
           - name: macos-universal
@@ -92,23 +101,35 @@ jobs:
           key: ${{ matrix.name }}
       - run: npm ci
 
-      - id: tauri
-        uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
+      # macOS signing + notarization is optional. Only pass the secrets on when a certificate is
+      # really set: an empty APPLE_CERTIFICATE makes Tauri try to import it, and the build fails.
+      # Without them the app is ad-hoc signed (bundle.macOS.signingIdentity "-").
+      - name: Use Apple signing secrets, if set
+        if: runner.os == 'macOS'
         env:
-          GITHUB_TOKEN: ${{ github.token }}
-          # macOS signing + notarization: optional. While these secrets are unset, the app is
-          # ad-hoc signed (bundle.macOS.signingIdentity "-"), and users use "Open Anyway".
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -n "$APPLE_CERTIFICATE" ]; then
+            for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+              echo "$name=${!name}" >> "$GITHUB_ENV"
+            done
+          fi
+
+      - id: tauri
+        uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         with:
           releaseId: ${{ needs.draft.outputs.release-id }}
           args: ${{ matrix.args }}
 
       - name: Checksums
+        if: github.event_name == 'push'
         shell: bash
         env:
           ARTIFACT_PATHS: ${{ steps.tauri.outputs.artifactPaths }}
@@ -126,7 +147,7 @@ jobs:
       # Signed proof of which workflow built which file. GitHub offers this for public repos
       # (private repos need GitHub Enterprise), so it runs once the repo is public.
       - name: Build provenance
-        if: ${{ !github.event.repository.private }}
+        if: ${{ github.event_name == 'push' && !github.event.repository.private }}
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: |
