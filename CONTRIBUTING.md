@@ -44,6 +44,15 @@ Two dev pages run YDCP in a normal browser tab after `npx vite`. Put test models
 - `http://localhost:1420/dev/pose.html?model=<name>`: the pose lab, for trying and tuning motions. Add `&raf=timer` to keep it animating in a background tab.
 - `http://localhost:1420/dev/app.html?model=<name>`: the real front end, with its cards, with the Rust side faked. From the console, `__app.pick('aboutModel')` or `__app.pick('outfit', 'hat01')` acts like a menu pick.
 
+## Translations
+
+YDCP speaks English, Japanese (`ja`), Simplified Chinese (`zh-Hans`) and Traditional Chinese (`zh-Hant`). All its words, from the menu (Rust) to the cards and her lines (front end), are in `src/locales/<code>.json`, one file per language with the same keys.
+
+- **Fixing a translation:** edit the value in that language's file. Keep `{placeholders}` exactly as they are; `npm test` checks them.
+- **Adding a language:** copy `en.json` to `src/locales/<code>.json` and translate every value. Then add it to `TABLES` in `src/i18n.js`, and to `LANGUAGES` and `tables()` in `src-tauri/src/i18n.rs` with its own name (e.g. `("ko", "한국어")`). Map its system locales in `from_locale`.
+- Her lines (`lines.*`) are lists. Any number of lines works, but keep her voice: warm, short, a little playful.
+- Model names, expression names and file names are never translated.
+
 ## Project layout
 
 | Path | What's there |
@@ -52,6 +61,7 @@ Two dev pages run YDCP in a normal browser tab after `npx vite`. Put test models
 | `src-tauri/` | The Rust app: window, tray menu, file access, click-through |
 | `src-tauri/capabilities/` | What the front end may ask the app to do; keep it minimal |
 | `scripts/` | Version, privacy, release-notes and checksum helpers used by CI |
+| `src/locales/` | Every word YDCP shows, one file per language (see Translations) |
 | `tests/` | JavaScript unit tests (Vitest) |
 | `dev/` | Dev-only pages (pose lab, app in a browser); never shipped |
 | `docs/` | User docs (install, models, motions, agent link) and the project plan |

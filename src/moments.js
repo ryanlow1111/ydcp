@@ -16,14 +16,12 @@ const arm = (side, body, target, pole) => {
 }
 
 /**
- * Each moment: menu name, face, what she says, length in seconds, and `pose(t, body)` giving
- * her whole body at time t.
+ * Each moment: face, length in seconds, and `pose(t, body)` giving her whole body at time t.
+ * Its name and what she says are in src/locales/*.json (`moment.<id>`, `moment.<id>.line`).
  */
 export const MOMENTS = {
   wave: {
-    name: 'Wave',
     face: 'happy',
-    line: 'Hi hi~ 👋',
     duration: 2.8,
     pose: (t, body) => {
       const { face, height } = body
@@ -47,9 +45,7 @@ export const MOMENTS = {
     },
   },
   peace: {
-    name: 'Peace',
     face: 'happy',
-    line: 'Peace! ✌️',
     duration: 3,
     pose: (t, body) => {
       const { face, height } = body
@@ -70,9 +66,7 @@ export const MOMENTS = {
     },
   },
   shy: {
-    name: 'Shy',
     face: 'relaxed',
-    line: 'E-eh? Don’t stare so much…',
     duration: 3.2,
     pose: (t, body) => {
       const { face, height, frontZ, shoulder } = body

@@ -56,6 +56,7 @@ const commands = {
   },
   read_motions: () => null,
   frame_rate: () => 60,
+  app_language: () => params.get('lang') ?? 'en',
   pet_scale: () => 1,
   set_pet_scale: ({ scale }) => Math.min(2, Math.max(0.5, scale)),
   break_every: () => settings.breakEvery ?? 0,

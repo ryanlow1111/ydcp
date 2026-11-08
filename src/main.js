@@ -9,12 +9,14 @@ import { getVersion } from '@tauri-apps/api/app'
 import { createPet, parseMotion } from './pet.js'
 import { createHitTest } from './hit.js'
 import { wireGestures } from './gestures.js'
+import { setLanguage, t, translatePage } from './i18n.js'
 import { isStandard, motionEntries, parseJson } from './library.js'
 import { inspectModel, modelNotes } from './modelinfo.js'
 import { createMood } from './mood.js'
 import { createReminders, span } from './reminders.js'
 import {
   addModel,
+  appLanguage,
   breakEvery,
   setTimerLeft,
   showPet,
@@ -170,9 +172,13 @@ function closeCard(element) {
   }
 }
 
+/** The problem the welcome card explains, if any (kept so a language change can redraw it). */
+let welcomeProblem = null
+
 /** The welcome / "add a model" card, with an optional problem to explain. */
 async function showWelcome(problem) {
-  cardText.textContent = problem ?? 'Add your VRM model to meet your companion.'
+  welcomeProblem = problem ?? null
+  cardText.textContent = problem ?? t('page.welcome')
   try {
     cardPath.textContent = await modelsFolder()
   } catch {
@@ -195,10 +201,10 @@ function showModelCard() {
   const megabytes = (summary.bytes / 1024 / 1024).toFixed(1)
   document.getElementById('model-name').textContent = summary.name || model
   document.getElementById('model-facts').textContent = [
-    summary.author && `By ${summary.author}`,
+    summary.author && t('card.by', { author: summary.author }),
     `VRM ${summary.version}`,
-    `${megabytes} MB`,
-    `${Math.round(summary.triangles / 1000)}k triangles`,
+    t('card.megabytes', { n: megabytes }),
+    t('card.triangles', { n: Math.round(summary.triangles / 1000) }),
   ]
     .filter(Boolean)
     .join(' · ')
@@ -215,7 +221,7 @@ function showModelCard() {
   )
   showSorting(faces, outfit)
   const { allowedUser, redistribution } = summary.licence
-  document.getElementById('model-licence').textContent = `Licence in the file: use ${allowedUser ?? 'not stated'}, redistribution ${redistribution ?? 'not stated'}.`
+  document.getElementById('model-licence').textContent = t('card.licence', { use: allowedUser ?? t('card.notStated'), redistribution: redistribution ?? t('card.notStated') })
   closeCard(about)
   openCard(modelCard)
 }
@@ -239,19 +245,19 @@ function showSorting(faces, outfit) {
       chip.type = 'button'
       chip.className = 'chip'
       chip.textContent = name
-      chip.title = outfit.includes(name) ? 'Move to faces' : 'Move to outfit'
+      chip.title = outfit.includes(name) ? t('card.moveToFaces') : t('card.moveToOutfit')
       chip.addEventListener('click', () => resortOutfit(outfit.includes(name) ? outfit.filter(part => part !== name) : [...outfit, name]))
       row.append(chip)
     }
     if (names.length === 0) {
       const none = document.createElement('span')
       none.className = 'none'
-      none.textContent = 'none'
+      none.textContent = t('card.none')
       row.append(none)
     }
     return row
   }
-  document.getElementById('model-sort-groups').replaceChildren(group('Faces', custom), group('Outfit', outfit))
+  document.getElementById('model-sort-groups').replaceChildren(group(t('card.faces'), custom), group(t('card.outfit'), outfit))
   document.getElementById('model-sort-reset').hidden = outfitParts === null
 }
 
@@ -286,18 +292,18 @@ async function showAbout() {
   }
   const info = model ? pet?.describe() : null
   if (info) {
-    add('Model', `${info.name ?? model} (VRM ${info.version})`)
-    add('Credit', info.credit)
+    add(t('about.model'), `${info.name ?? model} (VRM ${info.version})`)
+    add(t('about.credit'), info.credit)
     const { allowedUser, redistribution, url } = info.licence
     add(
-      'Model licence (from the file)',
-      [allowedUser && `use: ${allowedUser}`, redistribution !== undefined && `redistribution: ${redistribution}`, url && url !== 'undefined' && url]
+      t('about.licence'),
+      [allowedUser && t('about.use', { value: allowedUser }), redistribution !== undefined && t('about.redistribution', { value: redistribution }), url && url !== 'undefined' && url]
         .filter(Boolean)
         .join(' · '),
     )
   }
-  add('Motions', motionCredits.join(' · '))
-  add('Built with', 'Tauri, three.js, three-vrm (MIT)')
+  add(t('about.motions'), motionCredits.join(' · '))
+  add(t('about.builtWith'), 'Tauri, three.js, three-vrm (MIT)')
   closeCard(modelCard)
   openCard(about)
   await showWindow()
@@ -438,7 +444,7 @@ async function loadModel(name) {
     act(mood.start(Date.now()))
   } catch (error) {
     console.error(`[ydcp] ${error?.stack ?? error}`)
-    await showWelcome(`Couldn't load "${name}": ${error?.message ?? error}`)
+    await showWelcome(t('page.couldntLoad', { name, error: error?.message ?? error }))
   }
 }
 
@@ -464,6 +470,26 @@ async function loadLibrary() {
   if (pet) {
     pet.setLibrary(loaded)
     await setCatalogue(pet.catalogue()).catch(() => {})
+  }
+}
+
+// ---- Language ---------------------------------------------------------------------------------
+
+/** Shows everything in `code` ('en', 'ja', 'zh-Hans', 'zh-Hant'), redrawing whatever is open. */
+function applyLanguage(code) {
+  setLanguage(code)
+  translatePage()
+  if (!card.hidden) {
+    cardText.textContent = welcomeProblem ?? t('page.welcome')
+  }
+  if (!modelCard.hidden) {
+    showModelCard()
+  }
+  if (!about.hidden) {
+    showAbout()
+  }
+  if (pet && model) {
+    setCatalogue(pet.catalogue()).catch(() => {})
   }
 }
 
@@ -498,17 +524,17 @@ async function start() {
       case 'breakEvery':
         reminders.setBreakEvery(Number(id), Date.now())
         if (reminders.breakEvery > 0) {
-          say(`Okay! I’ll remind you to take a break every ${span(reminders.breakEvery).toLowerCase()}.`)
+          say(t('reminder.breakSet', { span: span(reminders.breakEvery).toLowerCase() }))
         }
         break
       case 'timer':
         reminders.startTimer(Number(id), Date.now())
-        say(`Okay! I’ll tell you in ${span(Number(id)).toLowerCase()}. ⏱`)
+        say(t('reminder.timerSet', { span: span(Number(id)).toLowerCase() }))
         tickReminders(Date.now())
         break
       case 'cancelTimer':
         reminders.cancelTimer()
-        say('Timer cancelled.')
+        say(t('reminder.timerCancelled'))
         tickReminders(Date.now())
         break
       case 'about':
@@ -517,12 +543,16 @@ async function start() {
       case 'aboutModel':
         showModelCard()
         break
+      case 'language':
+        applyLanguage(id)
+        break
     }
   })
   await onLibraryChange(() => loadLibrary())
   await onProblem(message => say(`⚠️ ${message}`, { talk: false }))
   await onAgent(state => act(mood.agent(state, Date.now())))
 
+  applyLanguage(await appLanguage().catch(() => 'en'))
   reminders.setBreakEvery(await breakEvery().catch(() => 0), Date.now())
   await loadLibrary()
   await loadModel(await currentModel().catch(() => null))

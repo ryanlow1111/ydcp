@@ -16,6 +16,7 @@ All notable changes to YDCP are listed here. The format follows [Keep a Changelo
 - Menu → Reminders: a break reminder every 30–90 minutes of work (time away counts as a break), and a 5–60 minute timer. She waves and tells you; no sound. Both off unless you pick them.
 - Menu → Start at login (off by default). On a Mac, YDCP must be in Applications first.
 - Open a `.vrm` with YDCP (double-click, or Open With): it's copied into the models folder, unless it's there already, and she switches to it.
+- Japanese, Simplified Chinese and Traditional Chinese: the menu, cards, model notes and everything she says. YDCP follows the system language; Menu → Language picks one. Translations are in `src/locales/`, and fixes are welcome.
 - Face-tracking shapes (perfect sync: the 52 ARKit shapes, VSeeFace's extra mouth shapes and brows) stay out of the menus, so perfect-sync models no longer list dozens of meaningless "expressions".
 
 ### Changed

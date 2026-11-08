@@ -14,10 +14,10 @@
     <section id="card" class="card" hidden>
       <h1>YDCP</h1>
       <p id="card-text">Loading…</p>
-      <button id="add-model" type="button">Add a model (.vrm)…</button>
-      <p class="small">Or put one in your models folder:</p>
+      <button id="add-model" type="button" data-i18n="page.addModel">Add a model (.vrm)…</button>
+      <p class="small" data-i18n="page.orFolder">Or put one in your models folder:</p>
       <code id="card-path"></code>
-      <p class="hint">Need a model? Make one free in VRoid Studio, or see the README's "Add your model" (including VRChat avatars). Quit from the YDCP icon in the menu bar (Mac) or notification area (Windows).</p>
+      <p class="hint" data-i18n="page.hint">Need a model? Make one free in VRoid Studio, or see the README's "Add your model" (including VRChat avatars). Quit from the YDCP icon in the menu bar (Mac) or notification area (Windows).</p>
     </section>
 
     <section id="model-card" class="card" hidden>
@@ -25,22 +25,22 @@
       <p id="model-facts" class="small"></p>
       <ul id="model-notes"></ul>
       <div id="model-sort">
-        <p class="small">Faces show one at a time; outfit parts can be worn together (Menu → Outfit). Sorted wrong? Click one to move it.</p>
+        <p class="small" data-i18n="page.sortHelp">Faces show one at a time; outfit parts can be worn together (Menu → Outfit). Sorted wrong? Click one to move it.</p>
         <div id="model-sort-groups"></div>
-        <button id="model-sort-reset" class="quiet" type="button">Let YDCP decide again</button>
+        <button id="model-sort-reset" class="quiet" type="button" data-i18n="page.sortReset">Let YDCP decide again</button>
       </div>
       <p id="model-licence" class="small"></p>
-      <p class="small">The licence above comes from the file. The creator's own terms still apply: check them before sharing or converting a model.</p>
-      <button id="model-close" type="button">Close</button>
+      <p class="small" data-i18n="page.licenceNote">The licence above comes from the file. The creator's own terms still apply: check them before sharing or converting a model.</p>
+      <button id="model-close" type="button" data-i18n="page.close">Close</button>
     </section>
 
     <section id="about" class="card" hidden>
       <h1>YDCP <span id="about-version"></span></h1>
-      <p class="small">Your Desktop Companion Project · MIT License</p>
+      <p class="small" data-i18n="page.tagline">Your Desktop Companion Project · MIT License</p>
       <dl id="about-details"></dl>
-      <p class="small">🔒 No account, no internet, no tracking. Your files never leave your computer.</p>
+      <p class="small" data-i18n="page.privacy">🔒 No account, no internet, no tracking. Your files never leave your computer.</p>
       <p class="small">github.com/ryanlow1111/ydcp</p>
-      <button id="about-close" type="button">Close</button>
+      <button id="about-close" type="button" data-i18n="page.close">Close</button>
     </section>
   </body>
 </html>

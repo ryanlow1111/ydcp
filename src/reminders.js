@@ -3,6 +3,8 @@
 //
 // Plain logic with the time passed in, so it's easy to test; main.js acts on what it returns.
 
+import { t } from './i18n.js'
+
 /** Being away this long (no cursor movement) counts as a break. */
 export const AWAY_IS_A_BREAK_MS = 5 * 60 * 1000
 /** A break reminder only comes while you're actually here (moved the cursor this recently). */
@@ -12,14 +14,14 @@ const MINUTE = 60 * 1000
 export const BREAK_CHOICES = [30, 45, 60, 90]
 export const TIMER_CHOICES = [5, 10, 15, 25, 45, 60]
 
-/** 30 → "Half an hour", 60 → "An hour", 45 → "45 minutes". */
+/** 30 → "Half an hour", 60 → "An hour", 45 → "45 minutes" (in the current language). */
 export function span(minutes) {
-  const names = { 30: 'Half an hour', 60: 'An hour', 90: 'An hour and a half', 120: 'Two hours' }
-  return names[minutes] ?? `${minutes} minutes`
+  const named = t(`reminder.span.${minutes}`)
+  return named === `reminder.span.${minutes}` ? t('reminder.minutes', { n: minutes }) : named
 }
 
-export const breakLine = minutes => `${span(minutes)} already! Time to stretch and rest your eyes? ☕`
-export const timerLine = minutes => `Time’s up! ⏰ (${span(minutes).toLowerCase()})`
+export const breakLine = minutes => t('reminder.break', { span: span(minutes) })
+export const timerLine = minutes => t('reminder.timesUp', { span: span(minutes).toLowerCase() })
 
 /**
  * Reminders over time. `tick(now)` returns actions: { do: 'remind', kind: 'break' | 'timer', line }.

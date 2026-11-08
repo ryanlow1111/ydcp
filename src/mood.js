@@ -3,6 +3,9 @@
 // only if the agent link is on — cheers when an agent finishes.
 //
 // Plain logic with the time passed in, so it's easy to test; main.js acts on what it returns.
+// Her lines are in src/locales/*.json.
+
+import { lines, t } from './i18n.js'
 
 /** No cursor movement or poke for this long, and she dozes off. */
 export const SLEEP_AFTER_MS = 10 * 60 * 1000
@@ -10,38 +13,28 @@ export const SLEEP_AFTER_MS = 10 * 60 * 1000
 export const MUSE_MIN_MS = 70 * 1000
 export const MUSE_MAX_MS = 160 * 1000
 
-export const GREETINGS = ['Hi hi~ I’ll keep you company ♪', 'Hello again~ 👋', 'Hehe~ I’m here!']
-export const WAKE_LINES = ['Mm? Oh! Welcome back~', 'Ah—you’re back! ✨', '*stretches* …hi again~']
-export const SLEEP_LINES = ['*yawn*… just resting my eyes…', 'Zzz… 💤', 'Mm… five more minutes…']
-export const CHEER_LINES = ['Yay! All done~ ✨', 'You did it! Hehe~', 'Finished! Good job~']
-export const MUSINGS = [
-  '♪ la la la~',
-  'Hmm hm hmm ♪',
-  'Don’t forget to drink some water!',
-  'I’m right here if you need me~',
-  'You’re doing great, you know?',
-  'Snack break soon? 🍡',
-  'Stretch your shoulders a little~',
-]
-
 /** A line for the time of day, or null if there's nothing special to say. */
 export function timeOfDayLine(hour) {
   if (hour >= 0 && hour < 5) {
-    return 'It’s late… don’t stay up too long, okay?'
+    return t('time.late')
   }
   if (hour >= 5 && hour < 10) {
-    return 'Good morning~ ☀️'
+    return t('time.morning')
   }
   if (hour >= 12 && hour < 13) {
-    return 'Lunch time? 🍙'
+    return t('time.lunch')
   }
   if (hour >= 18 && hour < 20) {
-    return 'Evening already~ how was your day?'
+    return t('time.evening')
   }
   return null
 }
 
-const pick = (list, random) => list[Math.floor(random() * list.length) % list.length]
+/** A random line from one of her lists (lines.greetings…), in the current language. */
+const pick = (key, random) => {
+  const list = lines(key)
+  return list[Math.floor(random() * list.length) % list.length]
+}
 
 /**
  * Her mood over time. Every method takes `now` (ms) and returns what to do, as a list of
@@ -75,7 +68,7 @@ export function createMood({ now, random = Math.random, hourAt = time => new Dat
       if (special) {
         lastTimeLineHour = hourAt(time)
       }
-      return [{ do: 'greet', line: special ?? pick(GREETINGS, random) }]
+      return [{ do: 'greet', line: special ?? pick('lines.greetings', random) }]
     },
 
     /** The cursor moved or she was poked: you're here. */
@@ -84,7 +77,7 @@ export function createMood({ now, random = Math.random, hourAt = time => new Dat
       if (asleep) {
         asleep = false
         scheduleMusing(time)
-        return [{ do: 'wake', line: pick(WAKE_LINES, random) }]
+        return [{ do: 'wake', line: pick('lines.wake', random) }]
       }
       return []
     },
@@ -93,7 +86,7 @@ export function createMood({ now, random = Math.random, hourAt = time => new Dat
     tick(time) {
       if (!asleep && time - lastActivity >= SLEEP_AFTER_MS) {
         asleep = true
-        return [{ do: 'sleep', line: pick(SLEEP_LINES, random) }]
+        return [{ do: 'sleep', line: pick('lines.sleep', random) }]
       }
       if (!asleep && greeted && time >= nextMusing) {
         scheduleMusing(time)
@@ -103,7 +96,7 @@ export function createMood({ now, random = Math.random, hourAt = time => new Dat
           lastTimeLineHour = hour
           return [{ do: 'say', line: special }]
         }
-        return [{ do: 'say', line: pick(MUSINGS, random) }]
+        return [{ do: 'say', line: pick('lines.musings', random) }]
       }
       return []
     },
@@ -117,14 +110,14 @@ export function createMood({ now, random = Math.random, hourAt = time => new Dat
         const wake = asleep ? [{ do: 'wake', line: null }] : []
         asleep = false
         lastActivity = time
-        return [...wake, { do: 'cheer', line: line ?? pick(CHEER_LINES, random) }]
+        return [...wake, { do: 'cheer', line: line ?? pick('lines.cheer', random) }]
       }
       if (mood === 'sleepy') {
         if (asleep) {
           return line ? [{ do: 'say', line }] : []
         }
         asleep = true
-        return [{ do: 'sleep', line: line ?? pick(SLEEP_LINES, random) }]
+        return [{ do: 'sleep', line: line ?? pick('lines.sleep', random) }]
       }
       const actions = []
       if (asleep && (mood === 'working' || mood === 'failed')) {

@@ -13,6 +13,7 @@ fn main() {
             "set_click_through",
             "current_model",
             "frame_rate",
+            "app_language",
             "pet_scale",
             "set_pet_scale",
             "break_every",

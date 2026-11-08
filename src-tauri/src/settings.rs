@@ -87,14 +87,6 @@ impl Size {
             .find(|size| (size.factor() - scale).abs() < 0.01)
     }
 
-    pub fn label(self) -> &'static str {
-        match self {
-            Size::Small => "Small",
-            Size::Medium => "Medium",
-            Size::Large => "Large",
-        }
-    }
-
     pub fn id(self) -> &'static str {
         match self {
             Size::Small => "small",
@@ -127,6 +119,9 @@ pub struct Settings {
     pub agent_link: Option<AgentLink>,
     #[serde(default, rename = "frameRate", skip_serializing_if = "Option::is_none")]
     pub frame_rate: Option<u32>,
+    /// Menu → Language: 'en', 'ja', 'zh-Hans' or 'zh-Hant'; missing follows the system.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
     /// Break reminders every so many minutes of work (off unless set).
     #[serde(
         default,

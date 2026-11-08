@@ -12,6 +12,8 @@ import { defaultBody, measureBody } from './body.js'
 import { makeLoops, VIBES } from './moves.js'
 import { MOMENTS, MOMENT_IDS, makeMoments } from './moments.js'
 import { applyTrim, clearArms } from './fixes.js'
+// `text` (not `t`): in this file `t` is the animation clock.
+import { lines, t as text } from './i18n.js'
 import { modelProfile, resolveFace, sortExpressions } from './library.js'
 
 /**
@@ -27,8 +29,6 @@ const FADE = 0.6
 export const VIBE_CHOICES = ['idle', 'sway', 'bop', 'sleepy']
 /** Her resting smile. */
 const SOFT_SMILE = 0.35
-/** What she might say when patted (now and then, never every time). */
-const PAT_LINES = ['Ehehe…', 'Mmm~', 'That’s nice.', '♪']
 /** Mouth shapes for talking, the open ones more often. */
 const VOWELS = ['aa', 'oh', 'aa', 'ee', 'ih', 'ou', 'oh']
 /** How long she moves her mouth for a line: about a syllable every three letters, within limits. */
@@ -41,7 +41,7 @@ export async function parseMotion(bytes) {
   const gltf = await loader.parseAsync(bytes, '')
   const animation = gltf.userData.vrmAnimations?.[0]
   if (!animation) {
-    throw new Error("This file isn't a VRM Animation (.vrma).")
+    throw new Error(text('error.notVrma'))
   }
   return animation
 }
@@ -134,7 +134,8 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     if (pat.turns.length >= 3) {
       if (t > pat.until && t - pat.saidAt > 45 && Math.random() < 0.5) {
         pat.saidAt = t
-        onSay(PAT_LINES[Math.floor(Math.random() * PAT_LINES.length)])
+        const patLines = lines('lines.pat')
+        onSay(patLines[Math.floor(Math.random() * patLines.length)])
       }
       pat.until = t + 0.9
     }
@@ -287,7 +288,7 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     const gltf = await loader.parseAsync(bytes, '')
     const next = gltf.userData.vrm
     if (!next) {
-      throw new Error("This file isn't a VRM model.")
+      throw new Error(text('error.notVrm'))
     }
     unload()
     vrm = next
@@ -320,8 +321,19 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
       loops[name] = mixer.clipAction(clip)
     }
     for (const [id, clip] of Object.entries(makeMoments(vrm, vrm0, figure))) {
-      const { name, face, line } = MOMENTS[id]
-      moments[id] = { id, name, face, line, random: true, action: mixer.clipAction(clip) }
+      // Built-in moments' names and lines follow the language, even if it changes later.
+      moments[id] = {
+        id,
+        face: MOMENTS[id].face,
+        get name() {
+          return text(`moment.${id}`)
+        },
+        get line() {
+          return text(`moment.${id}.line`)
+        },
+        random: true,
+        action: mixer.clipAction(clip),
+      }
     }
     buildLibrary()
     setBase(vibeChoice === 'auto' || !loops[vibeChoice] ? 'sway' : vibeChoice)
@@ -340,7 +352,7 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     const authors = meta.authors ?? (meta.author ? [meta.author] : [])
     return {
       name: profile.name ?? meta.name ?? meta.title ?? null,
-      credit: profile.credit ?? (authors.length > 0 ? `Model by ${authors.join(', ')}` : null),
+      credit: profile.credit ?? (authors.length > 0 ? text('about.modelBy', { authors: authors.join(', ') }) : null),
       version: vrm0 ? '0.x' : '1.0',
       licence: vrm0
         ? { allowedUser: meta.allowedUserName, redistribution: meta.licenseName, url: meta.otherLicenseUrl }
@@ -523,7 +535,7 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
 
   /** The motions she can do, for the menu. */
   function catalogue() {
-    const builtIn = MOMENT_IDS.map(id => ({ id, name: MOMENTS[id].name }))
+    const builtIn = MOMENT_IDS.map(id => ({ id, name: text(`moment.${id}`) }))
     const library = Object.values(moments)
       .filter(moment => moment.library)
       .map(({ id, name }) => ({ id, name }))
@@ -532,7 +544,7 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     return {
       builtIn,
       library,
-      vibes: vibes.map(id => ({ id, name: vibeNames[id] ?? id.charAt(0).toUpperCase() + id.slice(1) })),
+      vibes: vibes.map(id => ({ id, name: vibeNames[id] ?? (VIBE_CHOICES.includes(id) ? text(`vibe.${id}`) : id) })),
       vibe: vibeChoice,
       face: heldFace,
       faces: modelFaces,

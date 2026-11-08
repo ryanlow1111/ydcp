@@ -10,6 +10,7 @@
 mod agent;
 mod assets;
 mod cursor;
+mod i18n;
 mod menu;
 mod settings;
 mod watch;
@@ -170,12 +171,21 @@ fn open_folder<R: Runtime>(app: &AppHandle<R>) {
 }
 
 /// "Add model…": pick a .vrm, copy it into the models folder, and switch to it.
+/// The language in use, for words that come from Rust (dialogs, problems).
+fn language<R: Runtime>(app: &AppHandle<R>) -> &'static str {
+    app.state::<SharedMenu>()
+        .0
+        .lock()
+        .map_or("en", |state| state.language)
+}
+
 fn add_model_dialog<R: Runtime>(app: &AppHandle<R>) {
     let app = app.clone();
+    let words = language(&app);
     app.dialog()
         .file()
-        .set_title("Add a VRM model")
-        .add_filter("VRM model", &["vrm"])
+        .set_title(i18n::t(words, "dialog.addModel"))
+        .add_filter(i18n::t(words, "dialog.vrmFilter"), &["vrm"])
         .pick_file(move |picked| {
             let Some(path) = picked.and_then(|file| file.into_path().ok()) else {
                 return;
@@ -225,8 +235,8 @@ fn add_motions_dialog<R: Runtime>(app: &AppHandle<R>) {
     let app = app.clone();
     app.dialog()
         .file()
-        .set_title("Add VRM Animation motions")
-        .add_filter("VRM Animation", &["vrma"])
+        .set_title(i18n::t(language(&app), "dialog.addMotions"))
+        .add_filter(i18n::t(language(&app), "dialog.vrmaFilter"), &["vrma"])
         .pick_files(move |picked| {
             let Some(files) = picked else {
                 return;
@@ -341,6 +351,18 @@ fn on_pick<R: Runtime>(app: &AppHandle<R>, pick: Pick) {
             menu::refresh(app);
             let _ = app.emit_to("main", "pick", Pick::BreakEvery(minutes.to_string()));
         }
+        Pick::Language(ref id) => {
+            let choice = (id != "auto").then(|| id.clone());
+            let now = i18n::resolve(choice.as_deref());
+            let kept = choice.filter(|choice| choice == now);
+            if let Ok(mut state) = app.state::<SharedMenu>().0.lock() {
+                state.language = now;
+                state.language_choice = kept.clone();
+            }
+            save_setting(app, |settings| settings.language = kept);
+            menu::refresh(app);
+            let _ = app.emit_to("main", "pick", Pick::Language(now.to_string()));
+        }
         Pick::Timer(_) | Pick::CancelTimer => {
             let _ = app.emit_to("main", "pick", pick);
         }
@@ -353,11 +375,12 @@ fn on_pick<R: Runtime>(app: &AppHandle<R>, pick: Pick) {
                 launcher.disable()
             };
             if let Err(error) = result {
-                let _ = app.emit_to(
-                    "main",
-                    "problem",
-                    format!("Couldn't change Start at login: {error}"),
+                let text = i18n::tf(
+                    language(app),
+                    "problem.startAtLogin",
+                    &[("error", &error.to_string())],
                 );
+                let _ = app.emit_to("main", "problem", text);
             }
             let now = launcher.is_enabled().unwrap_or(false);
             if let Ok(mut state) = app.state::<SharedMenu>().0.lock() {
@@ -392,19 +415,16 @@ fn on_pick<R: Runtime>(app: &AppHandle<R>, pick: Pick) {
     }
 }
 
-/// Why YDCP can't start at login from where it's running, if it can't: macOS runs an app
-/// opened straight from Downloads (or from the disk image) from a temporary copy, and a login
-/// item pointing there would break.
-fn login_blocked() -> Option<&'static str> {
-    let exe = std::env::current_exe().ok()?;
-    let path = exe.to_string_lossy();
-    login_blocked_for(&path)
+/// Whether YDCP can't start at login from where it's running: macOS runs an app opened
+/// straight from Downloads (or from the disk image) from a temporary copy, and a login item
+/// pointing there would break. The menu then says to move YDCP to Applications first.
+fn login_blocked() -> bool {
+    std::env::current_exe().is_ok_and(|exe| login_blocked_for(&exe.to_string_lossy()))
 }
 
-fn login_blocked_for(path: &str) -> Option<&'static str> {
-    (cfg!(target_os = "macos")
-        && (path.contains("/AppTranslocation/") || path.starts_with("/Volumes/")))
-    .then_some("move YDCP to Applications first")
+fn login_blocked_for(path: &str) -> bool {
+    cfg!(target_os = "macos")
+        && (path.contains("/AppTranslocation/") || path.starts_with("/Volumes/"))
 }
 
 /// Reads whether YDCP starts at login. If it does, the login item is written again, so it
@@ -473,6 +493,12 @@ fn set_pet_scale<R: Runtime>(app: AppHandle<R>, scale: f64) -> f64 {
     } else {
         pet_scale(app)
     }
+}
+
+/// The language in use: 'en', 'ja', 'zh-Hans' or 'zh-Hant'.
+#[tauri::command]
+fn app_language<R: Runtime>(app: AppHandle<R>) -> &'static str {
+    language(&app)
 }
 
 /// Break reminders every so many minutes (0: off).
@@ -614,6 +640,7 @@ pub fn run() {
             set_click_through,
             current_model,
             frame_rate,
+            app_language,
             pet_scale,
             set_pet_scale,
             break_every,
@@ -661,7 +688,12 @@ pub fn run() {
             let frame_rate = settings::valid_frame_rate(saved.frame_rate);
             let break_every = settings::valid_break_every(saved.break_every);
             let login_blocked = login_blocked();
-            let start_at_login = start_at_login(app.handle(), login_blocked.is_some());
+            let start_at_login = start_at_login(app.handle(), login_blocked);
+            let language_choice = saved
+                .language
+                .clone()
+                .filter(|choice| i18n::LANGUAGES.iter().any(|(code, _)| code == choice));
+            let language = i18n::resolve(language_choice.as_deref());
             if let Ok(mut state) = app.state::<SharedMenu>().0.lock() {
                 *state = MenuState {
                     models,
@@ -672,6 +704,8 @@ pub fn run() {
                     frame_rate,
                     start_at_login,
                     login_blocked,
+                    language,
+                    language_choice,
                     break_every,
                     ..MenuState::default()
                 };
@@ -721,20 +755,23 @@ mod tests {
     #[test]
     #[cfg(target_os = "macos")]
     fn start_at_login_needs_a_real_install_on_macos() {
-        assert!(login_blocked_for("/Applications/YDCP.app/Contents/MacOS/ydcp").is_none());
-        assert!(login_blocked_for("/Users/me/Applications/YDCP.app/Contents/MacOS/ydcp").is_none());
-        assert!(
-            login_blocked_for(
-                "/private/var/folders/x/AppTranslocation/ABC/d/YDCP.app/Contents/MacOS/ydcp"
-            )
-            .is_some()
-        );
-        assert!(login_blocked_for("/Volumes/YDCP/YDCP.app/Contents/MacOS/ydcp").is_some());
+        assert!(!login_blocked_for(
+            "/Applications/YDCP.app/Contents/MacOS/ydcp"
+        ));
+        assert!(!login_blocked_for(
+            "/Users/me/Applications/YDCP.app/Contents/MacOS/ydcp"
+        ));
+        assert!(login_blocked_for(
+            "/private/var/folders/x/AppTranslocation/ABC/d/YDCP.app/Contents/MacOS/ydcp"
+        ));
+        assert!(login_blocked_for(
+            "/Volumes/YDCP/YDCP.app/Contents/MacOS/ydcp"
+        ));
     }
 
     #[test]
     #[cfg(not(target_os = "macos"))]
     fn start_at_login_works_from_anywhere_elsewhere() {
-        assert!(login_blocked_for(r"C:\Program Files\YDCP\ydcp.exe").is_none());
+        assert!(!login_blocked_for(r"C:\Program Files\YDCP\ydcp.exe"));
     }
 }

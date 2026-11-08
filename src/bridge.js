@@ -31,6 +31,9 @@ export const readMotions = () => invoke('read_motions')
 /** The chosen frame rate (60 or 30). */
 export const frameRate = () => invoke('frame_rate')
 
+/** The language in use: 'en', 'ja', 'zh-Hans' or 'zh-Hant' (the system's, or Menu → Language). */
+export const appLanguage = () => invoke('app_language')
+
 /** Her size as a factor of 320 × 480. */
 export const petScale = () => invoke('pet_scale')
 

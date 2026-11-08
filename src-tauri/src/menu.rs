@@ -11,6 +11,7 @@ use tauri::menu::{CheckMenuItem, IsMenuItem, Menu, MenuItem, PredefinedMenuItem,
 use tauri::{AppHandle, Manager, Runtime};
 
 use crate::agent::AgentLink;
+use crate::i18n;
 use crate::settings::{self, Size};
 
 /// One motion or vibe in the menu.
@@ -75,8 +76,12 @@ pub struct MenuState {
     pub on_top: bool,
     /// Whether YDCP starts when the user logs in (the system's own setting, read at launch).
     pub start_at_login: bool,
-    /// Why "Start at login" can't be used from where YDCP is running, if it can't.
-    pub login_blocked: Option<&'static str>,
+    /// Whether "Start at login" can't be used from where YDCP is running (macOS, not installed).
+    pub login_blocked: bool,
+    /// The language in use ('en', 'ja', 'zh-Hans', 'zh-Hant').
+    pub language: &'static str,
+    /// Menu → Language's choice; `None` follows the system.
+    pub language_choice: Option<String>,
     pub visible: bool,
     pub agent_link: AgentLink,
     /// 60 or 30 frames a second.
@@ -101,7 +106,9 @@ impl Default for MenuState {
             scale: 1.0,
             on_top: true,
             start_at_login: false,
-            login_blocked: None,
+            login_blocked: false,
+            language: "en",
+            language_choice: None,
             visible: true,
             agent_link: AgentLink::Off,
             frame_rate: settings::DEFAULT_FRAME_RATE,
@@ -137,6 +144,7 @@ pub enum Pick {
     BreakEvery(String),
     Timer(String),
     CancelTimer,
+    Language(String),
     OpenFolder,
     About,
     AboutModel,
@@ -167,6 +175,7 @@ impl Pick {
             "break-every" => Pick::BreakEvery(rest.to_string()),
             "timer" => Pick::Timer(rest.to_string()),
             "cancel-timer" => Pick::CancelTimer,
+            "language" => Pick::Language(rest.to_string()),
             "open-folder" => Pick::OpenFolder,
             "about" => Pick::About,
             "about-model" => Pick::AboutModel,
@@ -198,16 +207,13 @@ pub fn build<R: Runtime, M: Manager<R>>(app: &M, state: &MenuState) -> tauri::Re
         CheckMenuItem::with_id(app, id, text, true, checked, None::<&str>)
     };
     let separator = || PredefinedMenuItem::separator(app);
+    let tr = |key: &str| i18n::t(state.language, key);
+    let disabled = |text: &str| MenuItem::new(app, text, false, None::<&str>);
 
     // Models ▸
     let mut model_items: Vec<Box<dyn IsMenuItem<R>>> = Vec::new();
     if state.models.is_empty() {
-        model_items.push(Box::new(MenuItem::new(
-            app,
-            "No models yet",
-            false,
-            None::<&str>,
-        )?));
+        model_items.push(Box::new(disabled(&tr("menu.noModels"))?));
     }
     for file in &state.models {
         let current = state.model.as_deref() == Some(file.as_str());
@@ -218,15 +224,15 @@ pub fn build<R: Runtime, M: Manager<R>>(app: &M, state: &MenuState) -> tauri::Re
         )?));
     }
     model_items.push(Box::new(separator()?));
-    model_items.push(Box::new(item("add-model", "Add model…")?));
+    model_items.push(Box::new(item("add-model", &tr("menu.addModel"))?));
     model_items.push(Box::new(MenuItem::with_id(
         app,
         "about-model",
-        "About this model…",
+        tr("menu.aboutModel"),
         state.model.is_some(),
         None::<&str>,
     )?));
-    let models = Submenu::with_items(app, "Models", true, &refs(&model_items))?;
+    let models = Submenu::with_items(app, tr("menu.models"), true, &refs(&model_items))?;
 
     // Motions ▸ — moments, then Vibes ▸ and Expressions ▸.
     let mut motion_items: Vec<Box<dyn IsMenuItem<R>>> = Vec::new();
@@ -249,7 +255,7 @@ pub fn build<R: Runtime, M: Manager<R>>(app: &M, state: &MenuState) -> tauri::Re
 
     let mut vibe_items: Vec<Box<dyn IsMenuItem<R>>> = vec![Box::new(check(
         "vibe:auto",
-        "Auto (drift)",
+        &tr("menu.vibeAuto"),
         state.vibe == "auto",
     )?)];
     for vibe in &state.catalogue.vibes {
@@ -261,14 +267,14 @@ pub fn build<R: Runtime, M: Manager<R>>(app: &M, state: &MenuState) -> tauri::Re
     }
     motion_items.push(Box::new(Submenu::with_items(
         app,
-        "Vibes",
+        tr("menu.vibes"),
         true,
         &refs(&vibe_items),
     )?));
 
     let mut face_items: Vec<Box<dyn IsMenuItem<R>>> = vec![Box::new(check(
         "face:none",
-        "Her own",
+        &tr("menu.faceOwn"),
         state.face.is_none(),
     )?)];
     for face in &state.catalogue.faces {
@@ -280,29 +286,24 @@ pub fn build<R: Runtime, M: Manager<R>>(app: &M, state: &MenuState) -> tauri::Re
         )?));
     }
     if state.catalogue.faces.is_empty() {
-        face_items.push(Box::new(MenuItem::new(
-            app,
-            "This model has no expressions",
-            false,
-            None::<&str>,
-        )?));
+        face_items.push(Box::new(disabled(&tr("menu.noExpressions"))?));
     }
     motion_items.push(Box::new(Submenu::with_items(
         app,
-        "Expressions",
+        tr("menu.expressions"),
         true,
         &refs(&face_items),
     )?));
     motion_items.push(Box::new(separator()?));
-    motion_items.push(Box::new(item("add-motions", "Add motions…")?));
-    motion_items.push(Box::new(item("reload-motions", "Reload motions")?));
-    let motions = Submenu::with_items(app, "Motions", true, &refs(&motion_items))?;
+    motion_items.push(Box::new(item("add-motions", &tr("menu.addMotions"))?));
+    motion_items.push(Box::new(item("reload-motions", &tr("menu.reloadMotions"))?));
+    let motions = Submenu::with_items(app, tr("menu.motions"), true, &refs(&motion_items))?;
 
     // Outfit ▸ — only for a model with parts to show or hide; any number at once.
     let mut outfit_items: Vec<Box<dyn IsMenuItem<R>>> = vec![
         Box::new(check(
             "outfit:none",
-            "Model's default",
+            &tr("menu.outfitDefault"),
             state.catalogue.wearing.is_empty(),
         )?),
         Box::new(separator()?),
@@ -315,55 +316,50 @@ pub fn build<R: Runtime, M: Manager<R>>(app: &M, state: &MenuState) -> tauri::Re
             worn,
         )?));
     }
-    let outfit = Submenu::with_items(app, "Outfit", true, &refs(&outfit_items))?;
+    let outfit = Submenu::with_items(app, tr("menu.outfit"), true, &refs(&outfit_items))?;
 
     // Size ▸
     let mut size_items: Vec<Box<dyn IsMenuItem<R>>> = Vec::new();
     for size in Size::ALL {
         size_items.push(Box::new(check(
             &format!("size:{}", size.id()),
-            size.label(),
+            &tr(&format!("menu.size.{}", size.id())),
             Size::matching(state.scale) == Some(size),
         )?));
     }
     size_items.push(Box::new(separator()?));
-    size_items.push(Box::new(MenuItem::new(
-        app,
-        if cfg!(target_os = "macos") {
-            "Any size: pinch or ⌘-scroll over her"
-        } else {
-            "Any size: Ctrl-scroll over her"
-        },
-        false,
-        None::<&str>,
-    )?));
-    let sizes = Submenu::with_items(app, "Size", true, &refs(&size_items))?;
+    size_items.push(Box::new(disabled(&tr(if cfg!(target_os = "macos") {
+        "menu.anySizeMac"
+    } else {
+        "menu.anySizeWindows"
+    }))?));
+    let sizes = Submenu::with_items(app, tr("menu.size"), true, &refs(&size_items))?;
 
     // Frame rate ▸
     let rates = Submenu::with_items(
         app,
-        "Frame rate",
+        tr("menu.frameRate"),
         true,
         &[
-            &check("frame-rate:60", "60 fps (smooth)", state.frame_rate == 60)?,
-            &check(
-                "frame-rate:30",
-                "30 fps (saves power)",
-                state.frame_rate == 30,
-            )?,
+            &check("frame-rate:60", &tr("menu.fps60"), state.frame_rate == 60)?,
+            &check("frame-rate:30", &tr("menu.fps30"), state.frame_rate == 30)?,
         ],
     )?;
 
     // Reminders ▸ — a break reminder and a timer, both off unless picked.
     let mut break_items: Vec<Box<dyn IsMenuItem<R>>> = vec![Box::new(check(
         "break-every:0",
-        "Off",
+        &tr("menu.off"),
         state.break_every == 0,
     )?)];
     for minutes in settings::BREAK_CHOICES {
         break_items.push(Box::new(check(
             &format!("break-every:{minutes}"),
-            &format!("Every {minutes} minutes"),
+            &i18n::tf(
+                state.language,
+                "menu.everyMinutes",
+                &[("n", &minutes.to_string())],
+            ),
             state.break_every == minutes,
         )?));
     }
@@ -371,37 +367,40 @@ pub fn build<R: Runtime, M: Manager<R>>(app: &M, state: &MenuState) -> tauri::Re
     for minutes in settings::TIMER_CHOICES {
         timer_items.push(Box::new(item(
             &format!("timer:{minutes}"),
-            &format!("{minutes} minutes"),
+            &i18n::tf(
+                state.language,
+                "menu.minutes",
+                &[("n", &minutes.to_string())],
+            ),
         )?));
     }
     let mut reminder_items: Vec<Box<dyn IsMenuItem<R>>> = Vec::new();
     if let Some(left) = state.timer_left {
-        reminder_items.push(Box::new(MenuItem::new(
-            app,
-            format!("Timer: {left} min left"),
-            false,
-            None::<&str>,
-        )?));
-        reminder_items.push(Box::new(item("cancel-timer", "Cancel timer")?));
+        reminder_items.push(Box::new(disabled(&i18n::tf(
+            state.language,
+            "menu.timerLeft",
+            &[("n", &left.to_string())],
+        ))?));
+        reminder_items.push(Box::new(item("cancel-timer", &tr("menu.cancelTimer"))?));
         reminder_items.push(Box::new(separator()?));
     }
     reminder_items.push(Box::new(Submenu::with_items(
         app,
-        "Break reminder",
+        tr("menu.breakReminder"),
         true,
         &refs(&break_items),
     )?));
     reminder_items.push(Box::new(Submenu::with_items(
         app,
-        if state.timer_left.is_some() {
-            "New timer"
+        tr(if state.timer_left.is_some() {
+            "menu.newTimer"
         } else {
-            "Timer"
-        },
+            "menu.timer"
+        }),
         true,
         &refs(&timer_items),
     )?));
-    let reminders = Submenu::with_items(app, "Reminders", true, &refs(&reminder_items))?;
+    let reminders = Submenu::with_items(app, tr("menu.reminders"), true, &refs(&reminder_items))?;
 
     // React to agent ▸ (off by default; for people who use an AI agent or a script).
     let mut agent_items: Vec<Box<dyn IsMenuItem<R>>> = Vec::new();
@@ -409,44 +408,66 @@ pub fn build<R: Runtime, M: Manager<R>>(app: &M, state: &MenuState) -> tauri::Re
         let id = format!("agent:{}", mode.id());
         agent_items.push(Box::new(check(
             &id,
-            mode.label(),
+            &tr(&format!("menu.agent.{}", mode.id())),
             state.agent_link == mode,
         )?));
     }
     if state.agent_link != AgentLink::Off {
         agent_items.push(Box::new(separator()?));
-        let status = if state.agent_found {
-            "Agent found ✓"
+        agent_items.push(Box::new(disabled(&tr(if state.agent_found {
+            "menu.agentFound"
         } else {
-            "No agent found yet"
-        };
-        agent_items.push(Box::new(MenuItem::new(app, status, false, None::<&str>)?));
+            "menu.agentMissing"
+        }))?));
     }
-    let agent = Submenu::with_items(app, "React to agent", true, &refs(&agent_items))?;
+    let agent = Submenu::with_items(app, tr("menu.agent"), true, &refs(&agent_items))?;
+
+    // Language ▸ — each language by its own name, so anyone can find theirs.
+    let mut language_items: Vec<Box<dyn IsMenuItem<R>>> = vec![
+        Box::new(check(
+            "language:auto",
+            &tr("menu.languageAuto"),
+            state.language_choice.is_none(),
+        )?),
+        Box::new(separator()?),
+    ];
+    for (code, name) in i18n::LANGUAGES {
+        language_items.push(Box::new(check(
+            &format!("language:{code}"),
+            name,
+            state.language_choice.as_deref() == Some(code),
+        )?));
+    }
+    let language = Submenu::with_items(app, tr("menu.language"), true, &refs(&language_items))?;
 
     let show = item(
         "show",
-        if state.visible {
-            "Hide YDCP"
+        &tr(if state.visible {
+            "menu.hide"
         } else {
-            "Show YDCP"
-        },
+            "menu.show"
+        }),
     )?;
-    let on_top = check("on-top", "Always on top", state.on_top)?;
-    let login = match state.login_blocked {
-        Some(why) => CheckMenuItem::with_id(
+    let on_top = check("on-top", &tr("menu.onTop"), state.on_top)?;
+    let login = if state.login_blocked {
+        CheckMenuItem::with_id(
             app,
             "start-at-login",
-            format!("Start at login ({why})"),
+            tr("menu.startAtLoginBlocked"),
             false,
             false,
             None::<&str>,
-        )?,
-        None => check("start-at-login", "Start at login", state.start_at_login)?,
+        )?
+    } else {
+        check(
+            "start-at-login",
+            &tr("menu.startAtLogin"),
+            state.start_at_login,
+        )?
     };
-    let folder = item("open-folder", "Open pet folder")?;
-    let about = item("about", "About YDCP…")?;
-    let quit = item("quit", "Quit YDCP")?;
+    let folder = item("open-folder", &tr("menu.openFolder"))?;
+    let about = item("about", &tr("menu.about"))?;
+    let quit = item("quit", &tr("menu.quit"))?;
     let separators = [separator()?, separator()?, separator()?];
     let mut items: Vec<&dyn IsMenuItem<R>> = vec![&show, &separators[0], &models, &motions];
     if !state.catalogue.outfit.is_empty() {
@@ -459,6 +480,7 @@ pub fn build<R: Runtime, M: Manager<R>>(app: &M, state: &MenuState) -> tauri::Re
         &on_top,
         &login,
         &agent,
+        &language,
         &separators[1],
         &folder,
         &about,
@@ -527,6 +549,10 @@ mod tests {
         );
         assert_eq!(Pick::parse("timer:25"), Some(Pick::Timer("25".into())));
         assert_eq!(Pick::parse("cancel-timer"), Some(Pick::CancelTimer));
+        assert_eq!(
+            Pick::parse("language:zh-Hant"),
+            Some(Pick::Language("zh-Hant".into()))
+        );
         assert_eq!(Pick::parse("nonsense"), None);
     }
 

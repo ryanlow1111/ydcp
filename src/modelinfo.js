@@ -2,6 +2,7 @@
 // size and licence. Shared by the app (Models → About this model…) and the folder checker
 // (npm run check:models), so they always agree. Plain data only: no drawing, no file access.
 
+import { listOf, t } from './i18n.js'
 import { isTrackingShape, resolveFace, sortExpressions } from './library.js'
 
 const GLB_MAGIC = 0x46546c67 // "glTF"
@@ -107,8 +108,6 @@ const MAX_MODEL_BYTES = 100 * MB
 const REQUIRED_BONES = ['hips', 'head', 'leftUpperArm', 'rightUpperArm', 'leftLowerArm', 'rightLowerArm', 'leftHand', 'rightHand']
 const STANDARD_FACES = ['happy', 'angry', 'sad', 'relaxed', 'surprised']
 
-const listOf = (names, most = 10) => (names.length > most ? `${names.slice(0, most).join(', ')} and ${names.length - most} more` : names.join(', '))
-
 /**
  * Plain-language notes about a model: { level, text }. `good` works as expected, `info` is worth
  * knowing, `warn` means something won't work on this model, `bad` means she can't be shown properly.
@@ -118,60 +117,60 @@ export function modelNotes(summary, outfitNames = null) {
   const notes = []
   const add = (level, text) => notes.push({ level, text })
   if (!summary.version) {
-    add('bad', 'This file has no VRM data, so YDCP can’t show it.')
+    add('bad', t('note.notVrm'))
     return notes
   }
   if (summary.bytes > MAX_MODEL_BYTES) {
-    add('bad', `The file is ${Math.round(summary.bytes / MB)} MB, over YDCP’s 100 MB limit, so it won’t load.`)
+    add('bad', t('note.tooBig', { mb: Math.round(summary.bytes / MB) }))
   }
 
   const missing = REQUIRED_BONES.filter(bone => !summary.bones.includes(bone))
   if (missing.length > 0) {
-    add('bad', `Missing body bones (${listOf(missing)}), so built-in motions can’t pose her properly.`)
+    add('bad', t('note.missingBones', { bones: listOf(missing) }))
   }
 
   const { faces, outfit } = sortExpressions(summary.expressions, outfitNames)
   const custom = faces.filter(name => name !== 'blink' && !STANDARD_FACES.includes(name))
   const found = STANDARD_FACES.filter(face => resolveFace(face, faces))
   if (faces.filter(name => name !== 'blink').length === 0) {
-    add('warn', 'No expressions: her face won’t change.')
+    add('warn', t('note.noExpressions'))
   } else if (found.length === STANDARD_FACES.length) {
-    add('good', 'Has all the standard faces, so moments and pokes change her expression.')
+    add('good', t('note.allFaces'))
   } else if (found.length === 0) {
-    add('warn', 'No standard faces, so moments and pokes won’t change her expression. Pick one from Motions → Expressions, or map them in a model profile.')
+    add('warn', t('note.noStandardFaces'))
   } else {
     const lacking = STANDARD_FACES.filter(face => !found.includes(face))
-    add('info', `Standard faces found: ${listOf(found)}. Not in this model: ${listOf(lacking)}.`)
+    add('info', t('note.someFaces', { found: listOf(found), lacking: listOf(lacking) }))
   }
   if (custom.length > 0) {
-    add('info', `${custom.length} custom expression${custom.length === 1 ? '' : 's'} in Motions → Expressions: ${listOf(custom)}.`)
+    add('info', t(custom.length === 1 ? 'note.customOne' : 'note.custom', { n: custom.length, list: listOf(custom) }))
   }
   const tracking = summary.expressions.filter(({ name, binds }) => binds > 0 && isTrackingShape(name)).length
   if (tracking > 0) {
-    add('info', `${tracking} face-tracking shape${tracking === 1 ? '' : 's'} for VTuber apps (perfect sync). YDCP leaves them out of its menus.`)
+    add('info', t(tracking === 1 ? 'note.trackingOne' : 'note.tracking', { n: tracking }))
   }
   if (outfit.length > 0) {
-    add('info', `${outfit.length} outfit part${outfit.length === 1 ? '' : 's'} to show or hide, in the Outfit menu: ${listOf(outfit)}.`)
+    add('info', t(outfit.length === 1 ? 'note.outfitOne' : 'note.outfit', { n: outfit.length, list: listOf(outfit) }))
   }
   if (!resolveFace('blink', faces)) {
-    add('warn', 'No blink, so she won’t blink.')
+    add('warn', t('note.noBlink'))
   }
 
   if (summary.springs === 0) {
-    add('warn', 'No hair or clothes physics, so her hair and skirt won’t move.')
+    add('warn', t('note.noPhysics'))
   } else {
-    add('good', 'Hair and clothes physics included.')
+    add('good', t('note.physics'))
   }
   if (!summary.bones.some(bone => /(Index|Middle)Proximal$/.test(bone))) {
-    add('info', 'No finger bones, so her fingers stay still and the Peace sign won’t show a V.')
+    add('info', t('note.noFingers'))
   }
   if (!summary.bones.includes('leftEye') || !summary.bones.includes('rightEye')) {
-    add('info', 'No eye bones, so her hands are placed using an estimate of where her face is.')
+    add('info', t('note.noEyes'))
   }
 
   if (summary.triangles > 150_000 || summary.textureBytes > 40 * MB) {
-    const details = [`${Math.round(summary.triangles / 1000)}k triangles`, `${Math.round(summary.textureBytes / MB)} MB of textures`].join(', ')
-    add('info', `A heavy model (${details}), so she may load slowly and use more memory.`)
+    const details = [t('note.heavyTriangles', { n: Math.round(summary.triangles / 1000) }), t('note.heavyTextures', { mb: Math.round(summary.textureBytes / MB) })].join(t('list.separator'))
+    add('info', t('note.heavy', { details }))
   }
   return notes
 }

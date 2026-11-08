@@ -34,14 +34,6 @@ impl AgentLink {
         }
     }
 
-    pub fn label(self) -> &'static str {
-        match self {
-            AgentLink::Off => "Off",
-            AgentLink::On => "On",
-            AgentLink::Auto => "Auto (while an agent is set up)",
-        }
-    }
-
     /// Whether the file should be read, given whether it exists.
     pub fn watches(self, file_exists: bool) -> bool {
         match self {

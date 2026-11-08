@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import { TABLES } from '../src/i18n.js'
 import * as THREE from 'three'
 import { faceList, isTrackingShape, modelProfile, motionEntries, parseJson, resolveFace, sortExpressions, tidyName } from '../src/library.js'
 import { MOMENTS, MOMENT_IDS, makeMoments } from '../src/moments.js'
@@ -195,11 +196,13 @@ describe('built-in moments', () => {
     }
   })
 
-  test('every moment has a name, a face and something to say', () => {
-    for (const moment of Object.values(MOMENTS)) {
-      expect(moment.name).toBeTruthy()
+  test('every moment has a face, and a name and something to say in every language', () => {
+    for (const [id, moment] of Object.entries(MOMENTS)) {
       expect(moment.face).toBeTruthy()
-      expect(moment.line).toBeTruthy()
+      for (const table of Object.values(TABLES)) {
+        expect(table[`moment.${id}`], id).toBeTruthy()
+        expect(table[`moment.${id}.line`], id).toBeTruthy()
+      }
     }
   })
 })

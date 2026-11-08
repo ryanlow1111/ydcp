@@ -20,6 +20,7 @@
     "allow-set-click-through",
     "allow-current-model",
     "allow-frame-rate",
+    "allow-app-language",
     "allow-pet-scale",
     "allow-set-pet-scale",
     "allow-break-every",

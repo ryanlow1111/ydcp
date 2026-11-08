@@ -175,6 +175,7 @@ YDCP only reads your model from your own computer. It never uploads, shares or m
 | Break reminders | Menu → **Reminders → Break reminder** → every 30–90 minutes of work. Time away from the computer counts as a break |
 | Timer | Menu → **Reminders → Timer** → 5–60 minutes; she waves and tells you when time's up |
 | Start with your computer | Menu → **Start at login** (Mac: move YDCP to Applications first) |
+| Change language | Menu → **Language** → English, 日本語, 简体中文 or 繁體中文. **Automatic** follows your system |
 | Pick a motion | Menu → **Motions** → a moment, a vibe, or an expression |
 | Put on a hat, glasses… | Menu → **Outfit** (only for models that have outfit parts; any number at once, with any expression) |
 | Change model | Menu → **Models** |
