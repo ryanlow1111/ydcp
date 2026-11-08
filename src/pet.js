@@ -27,6 +27,10 @@ const FADE = 0.6
 export const VIBE_CHOICES = ['idle', 'sway', 'bop', 'sleepy']
 /** Her resting smile. */
 const SOFT_SMILE = 0.35
+/** Mouth shapes for talking, the open ones more often. */
+const VOWELS = ['aa', 'oh', 'aa', 'ee', 'ih', 'ou', 'oh']
+/** How long she moves her mouth for a line: about a syllable every three letters, within limits. */
+const talkSeconds = line => Math.min(4, Math.max(0.6, line.length * 0.055))
 
 /** Loads `.vrma` bytes into a VRM animation (independent of any model). */
 export async function parseMotion(bytes) {
@@ -381,9 +385,25 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
 
   /**
    * The model's faces and outfit parts, read fresh for each model; anything from the last model
-   * is forgotten (main.js puts back the outfit saved for this model).
+   * is forgotten (main.js puts back the outfit and sorting saved for this model).
    */
   function readFaces() {
+    const expressions = vrm.expressionManager?.expressions ?? []
+    const has = name => expressions.some(expression => expression.expressionName === name && expression.binds.length > 0)
+    // Some models set their resting face with Neutral (VSeeFace applies it too).
+    neutralName = has('neutral') ? 'neutral' : null
+    mouthShapes = [...new Set(VOWELS)].filter(has)
+    mouthWeights = Object.fromEntries(mouthShapes.map(name => [name, 0]))
+    talkUntil = 0
+    ownOverrides = new Map(expressions.map(expression => [expression, [expression.overrideBlink, expression.overrideLookAt, expression.overrideMouth]]))
+    outfitChoice = null
+    wearing = new Set()
+    faceWeights = {}
+    sortFaces()
+  }
+
+  /** Sorts the expressions into faces and outfit parts: the user's choice, else the profile's, else YDCP's guess. */
+  function sortFaces() {
     const expressions = vrm.expressionManager?.expressions ?? []
     const sorted = sortExpressions(
       expressions.map(expression => ({
@@ -392,22 +412,34 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
         binary: expression.isBinary,
         targets: expression.binds.flatMap(bind => [...(bind.primitives ?? []).map(mesh => mesh.uuid), ...(bind.material ? [bind.material.uuid] : [])]),
       })),
-      profile.outfit,
+      outfitChoice ?? profile.outfit,
     )
     modelFaces = sorted.faces
     modelOutfit = sorted.outfit
-    wearing = new Set()
-    faceWeights = Object.fromEntries(modelFaces.filter(name => name !== blinkName()).map(name => [name, 0]))
+    wearing = new Set([...wearing].filter(name => modelOutfit.includes(name)))
+    faceWeights = Object.fromEntries(modelFaces.filter(name => name !== blinkName()).map(name => [name, faceWeights[name] ?? 0]))
     for (const expression of expressions) {
       // A hat or glasses mustn't stop her blinking or talking, as a face expression may.
-      if (modelOutfit.includes(expression.expressionName)) {
-        expression.overrideBlink = 'none'
-        expression.overrideLookAt = 'none'
-        expression.overrideMouth = 'none'
-      }
+      const [blink, lookAt, mouth] = modelOutfit.includes(expression.expressionName) ? ['none', 'none', 'none'] : ownOverrides.get(expression)
+      expression.overrideBlink = blink
+      expression.overrideLookAt = lookAt
+      expression.overrideMouth = mouth
     }
     if (!modelFaces.includes(heldFace)) {
       heldFace = null
+    }
+  }
+
+  /** Which expressions are outfit parts, as the user sorted them; null lets YDCP decide. */
+  function setOutfitParts(names) {
+    outfitChoice = Array.isArray(names) ? names : null
+    sortFaces()
+  }
+
+  /** Moves her mouth as if saying `line` (not while she dozes). */
+  function talk(line) {
+    if (!asleep && line) {
+      talkUntil = timer.getElapsed() + talkSeconds(line)
     }
   }
 
@@ -472,6 +504,17 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
   let modelFaces = []
   /** How strongly each of them shows right now, eased. */
   let faceWeights = {}
+  /** The user's own list of outfit parts (About this model), or null. */
+  let outfitChoice = null
+  /** Each expression's own blink, gaze and mouth settings, put back if it stops being an outfit part. */
+  let ownOverrides = new Map()
+  /** The model's Neutral expression, if it has one that does something. */
+  let neutralName = null
+  /** Talking: the mouth shapes the model has, how open each is, and the syllable she's on. */
+  let mouthShapes = []
+  let mouthWeights = {}
+  let talkUntil = 0
+  const syllable = { shape: null, start: 0, end: 0, open: 0 }
   /** The model's outfit parts (a hat, glasses…), and the ones she's wearing now. */
   let modelOutfit = []
   let wearing = new Set()
@@ -572,6 +615,27 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
         faceWeights[name] += (want - faceWeights[name]) * Math.min(1, dt * 8)
         em.setValue(name, faceWeights[name])
       }
+      if (neutralName) {
+        // Her resting face, fading out as another face shows.
+        const shown = Object.values(faceWeights).reduce((sum, weight) => sum + weight, 0)
+        em.setValue(neutralName, Math.max(0, 1 - shown))
+      }
+
+      // Talking: short syllables of random vowels, with the odd pause between words.
+      if (t < talkUntil && t >= syllable.end) {
+        const pause = Math.random() < 0.15
+        syllable.shape = pause ? null : mouthShapes[Math.floor(Math.random() * mouthShapes.length)]
+        syllable.start = t
+        syllable.end = t + (pause ? 0.12 : 0.1 + Math.random() * 0.1)
+        syllable.open = 0.35 + Math.random() * 0.35
+      }
+      const talking = t < talkUntil && syllable.shape
+      for (const name of mouthShapes) {
+        const progress = (t - syllable.start) / (syllable.end - syllable.start)
+        const want = talking && name === syllable.shape ? Math.sin(Math.PI * Math.min(1, progress)) * syllable.open : 0
+        mouthWeights[name] += (want - mouthWeights[name]) * Math.min(1, dt * 20)
+        em.setValue(name, mouthWeights[name])
+      }
       if (t > nextBlink) {
         blinkEnd = t + 0.13
         nextBlink = t + 2 + Math.random() * 4 + (Math.random() < 0.2 ? -1.6 : 0)
@@ -603,6 +667,8 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     setAsleep,
     cheer,
     holdFace,
+    talk,
+    setOutfitParts,
     setOutfit,
     toggleOutfit,
     poke,

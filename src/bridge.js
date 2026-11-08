@@ -31,8 +31,11 @@ export const readMotions = () => invoke('read_motions')
 /** The chosen frame rate (60 or 30). */
 export const frameRate = () => invoke('frame_rate')
 
-/** The outfit parts last shown on model `model` (a hat, glasses…), saved by the menu. */
+/** What's remembered about model `model`'s outfit: { wearing, parts } (parts null: YDCP decides). */
 export const savedOutfit = model => invoke('saved_outfit', { model })
+
+/** Saves the user's sorting of `model`'s outfit parts (null: YDCP decides) and what she wears. */
+export const sortOutfit = (model, parts, wearing) => invoke('sort_outfit', { model, parts, wearing })
 
 /** Tells the menu which motions, vibes, faces and outfit parts she has. */
 export const setCatalogue = catalogue => invoke('set_catalogue', { catalogue })

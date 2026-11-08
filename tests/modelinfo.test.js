@@ -113,6 +113,21 @@ describe('plain-language notes', () => {
     expect(says(notes, '2 custom expressions')).toBe(true)
   })
 
+  test('face-tracking shapes are counted, not listed as faces', () => {
+    const notes = notesFor([...standard, group('eyeBlinkLeft'), group('jawOpen'), group('mouthSmileLeft')])
+    expect(says(notes, '3 face-tracking shapes for VTuber apps')).toBe(true)
+    expect(says(notes, 'custom expression')).toBe(false)
+  })
+
+  test('the notes follow the user’s own sorting', () => {
+    const groups = [group('happy01'), group('Smile_A'), group('hat01', 'unknown', 1, true), group('Blink', 'blink')]
+    const summary = summarize(vrm0(groups))
+    expect(says(modelNotes(summary), '1 outfit part to show or hide, in the Outfit menu: hat01')).toBe(true)
+    const sorted = modelNotes(summary, ['Smile_A'])
+    expect(says(sorted, '1 outfit part to show or hide, in the Outfit menu: Smile_A')).toBe(true)
+    expect(says(sorted, 'hat01')).toBe(true)
+  })
+
   test('only custom names that match nothing: says so', () => {
     const notes = notesFor([group('Smile_A'), group('Blink', 'blink')])
     expect(notes.some(note => note.level === 'warn' && note.text.includes('No standard faces'))).toBe(true)

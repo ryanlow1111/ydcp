@@ -91,6 +91,14 @@ pub struct Settings {
     /// The outfit parts shown on each model (by file name), e.g. `"lily.vrm": ["hat01"]`.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub outfits: BTreeMap<String, Vec<String>>,
+    /// Which expressions are outfit parts, for models where the user sorted them in About this
+    /// model (replacing YDCP's guess), e.g. `"lily.vrm": ["hat01", "glass"]`.
+    #[serde(
+        default,
+        rename = "outfitParts",
+        skip_serializing_if = "BTreeMap::is_empty"
+    )]
+    pub outfit_parts: BTreeMap<String, Vec<String>>,
     /// Everything else in the file, kept untouched.
     #[serde(flatten)]
     pub other: Map<String, Value>,
@@ -100,6 +108,23 @@ impl Settings {
     /// The outfit parts last shown on `model`.
     pub fn outfit(&self, model: &str) -> Vec<String> {
         self.outfits.get(model).cloned().unwrap_or_default()
+    }
+
+    /// The user's own list of `model`'s outfit parts, if they sorted them.
+    pub fn outfit_parts(&self, model: &str) -> Option<Vec<String>> {
+        self.outfit_parts.get(model).cloned()
+    }
+
+    /// Remembers the user's list of `model`'s outfit parts; `None` lets YDCP decide again.
+    pub fn set_outfit_parts(&mut self, model: &str, parts: Option<&[String]>) {
+        match parts {
+            Some(parts) => {
+                self.outfit_parts.insert(model.to_string(), parts.to_vec());
+            }
+            None => {
+                self.outfit_parts.remove(model);
+            }
+        }
     }
 
     /// Remembers the outfit parts shown on `model`; none forgets the model's entry.
@@ -263,6 +288,19 @@ mod tests {
         assert!(!load(&path).outfits.contains_key("lily.vrm"));
         update(&path, |settings| settings.set_outfit("other.vrm", &[])).unwrap();
         assert!(!fs::read_to_string(&path).unwrap().contains("outfits"));
+
+        // The user's own sorting: an empty list (no parts) is kept, None forgets it.
+        assert_eq!(load(&path).outfit_parts("lily.vrm"), None);
+        update(&path, |settings| {
+            settings.set_outfit_parts("lily.vrm", Some(&[]))
+        })
+        .unwrap();
+        assert_eq!(load(&path).outfit_parts("lily.vrm"), Some(vec![]));
+        update(&path, |settings| {
+            settings.set_outfit_parts("lily.vrm", None)
+        })
+        .unwrap();
+        assert!(!fs::read_to_string(&path).unwrap().contains("outfitParts"));
         let _ = fs::remove_file(path);
     }
 

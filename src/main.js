@@ -9,8 +9,8 @@ import { getVersion } from '@tauri-apps/api/app'
 import { createPet, parseMotion } from './pet.js'
 import { createHitTest } from './hit.js'
 import { wireGestures } from './gestures.js'
-import { motionEntries, parseJson } from './library.js'
-import { inspectModel } from './modelinfo.js'
+import { isStandard, motionEntries, parseJson } from './library.js'
+import { inspectModel, modelNotes } from './modelinfo.js'
 import { createMood } from './mood.js'
 import {
   addModel,
@@ -31,6 +31,7 @@ import {
   readProfile,
   setCatalogue,
   setClickThrough,
+  sortOutfit,
   showWindow,
   windowPosition,
   windowScale,
@@ -51,6 +52,8 @@ let model = null
 let library = []
 /** What the current model's file says it has and lacks (modelinfo.js). */
 let modelReport = null
+/** The current model's outfit parts as the user sorted them in About this model, or null (YDCP decides). */
+let outfitParts = null
 /** Credits for the motions in use (from motions.json). */
 let motionCredits = []
 const mood = createMood({ now: Date.now() })
@@ -59,9 +62,12 @@ const mood = createMood({ now: Date.now() })
 
 let bubbleTimer = 0
 /** Shows `line` in her bubble for a few seconds. */
-function say(line) {
+function say(line, { talk = true } = {}) {
   if (!line) {
     return
+  }
+  if (talk) {
+    pet?.talk(line)
   }
   clearTimeout(bubbleTimer)
   bubble.textContent = line
@@ -149,7 +155,7 @@ function showModelCard() {
   if (!modelReport) {
     return
   }
-  const { summary, notes } = modelReport
+  const { summary } = modelReport
   const megabytes = (summary.bytes / 1024 / 1024).toFixed(1)
   document.getElementById('model-name').textContent = summary.name || model
   document.getElementById('model-facts').textContent = [
@@ -160,20 +166,72 @@ function showModelCard() {
   ]
     .filter(Boolean)
     .join(' · ')
+  const { faces, outfit } = pet.catalogue()
   const list = document.getElementById('model-notes')
+  // The notes follow how the expressions are sorted now (the user's choice, the profile, or the guess).
   list.replaceChildren(
-    ...notes.map(({ level, text }) => {
+    ...modelNotes(summary, outfit).map(({ level, text }) => {
       const item = document.createElement('li')
       item.className = level
       item.textContent = text
       return item
     }),
   )
+  showSorting(faces, outfit)
   const { allowedUser, redistribution } = summary.licence
   document.getElementById('model-licence').textContent = `Licence in the file: use ${allowedUser ?? 'not stated'}, redistribution ${redistribution ?? 'not stated'}.`
   closeCard(about)
   openCard(modelCard)
 }
+
+/**
+ * About this model's "Faces and outfit" chips: the model's own expressions (not the standard
+ * ones), in two groups. Clicking one moves it to the other group, for models YDCP sorts wrong.
+ */
+function showSorting(faces, outfit) {
+  const section = document.getElementById('model-sort')
+  const custom = faces.filter(name => !isStandard(name))
+  section.hidden = custom.length + outfit.length === 0
+  const group = (label, names) => {
+    const row = document.createElement('div')
+    row.className = 'chips'
+    const title = document.createElement('span')
+    title.textContent = label
+    row.append(title)
+    for (const name of names) {
+      const chip = document.createElement('button')
+      chip.type = 'button'
+      chip.className = 'chip'
+      chip.textContent = name
+      chip.title = outfit.includes(name) ? 'Move to faces' : 'Move to outfit'
+      chip.addEventListener('click', () => resortOutfit(outfit.includes(name) ? outfit.filter(part => part !== name) : [...outfit, name]))
+      row.append(chip)
+    }
+    if (names.length === 0) {
+      const none = document.createElement('span')
+      none.className = 'none'
+      none.textContent = 'none'
+      row.append(none)
+    }
+    return row
+  }
+  document.getElementById('model-sort-groups').replaceChildren(group('Faces', custom), group('Outfit', outfit))
+  document.getElementById('model-sort-reset').hidden = outfitParts === null
+}
+
+/** Saves the user's sorting (null: YDCP decides again) and shows it everywhere. */
+async function resortOutfit(parts) {
+  if (!pet || !model) {
+    return
+  }
+  outfitParts = parts
+  pet.setOutfitParts(parts)
+  showModelCard()
+  await sortOutfit(model, parts, pet.catalogue().wearing).catch(error => console.error(`[ydcp] ${error}`))
+  await setCatalogue(pet.catalogue()).catch(() => {})
+}
+
+document.getElementById('model-sort-reset').addEventListener('click', () => resortOutfit(null))
 
 /** About YDCP: version, the model's credit and licence, motion credits, privacy. */
 async function showAbout() {
@@ -276,7 +334,10 @@ async function loadModel(name) {
     pet.setFrameRate(await frameRate().catch(() => 60))
     canvas.hidden = false
     await pet.load(bytes, parseJson(profileText))
-    pet.setOutfit(await savedOutfit(name).catch(() => []))
+    const saved = await savedOutfit(name).catch(() => ({ wearing: [], parts: null }))
+    outfitParts = saved.parts ?? null
+    pet.setOutfitParts(outfitParts)
+    pet.setOutfit(saved.wearing ?? [])
     model = name
     closeCard(card)
     await setCatalogue(pet.catalogue())
@@ -349,7 +410,7 @@ async function start() {
     }
   })
   await onLibraryChange(() => loadLibrary())
-  await onProblem(message => say(`⚠️ ${message}`))
+  await onProblem(message => say(`⚠️ ${message}`, { talk: false }))
   await onAgent(state => act(mood.agent(state, Date.now())))
 
   await loadLibrary()

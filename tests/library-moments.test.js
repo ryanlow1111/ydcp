@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import * as THREE from 'three'
-import { faceList, modelProfile, motionEntries, parseJson, resolveFace, sortExpressions, tidyName } from '../src/library.js'
+import { faceList, isTrackingShape, modelProfile, motionEntries, parseJson, resolveFace, sortExpressions, tidyName } from '../src/library.js'
 import { MOMENTS, MOMENT_IDS, makeMoments } from '../src/moments.js'
 import { defaultBody, solveArm, wristOf } from '../src/body.js'
 import { crouchEnd, trimClip } from '../src/fixes.js'
@@ -72,6 +72,33 @@ describe('expressions: the menu lists what the model really has', () => {
     expect(resolveFace('sad', faces)).toBe('sad_1')
     expect(resolveFace('blink', faces)).toBe('blink')
     expect(resolveFace('angry', faces)).toBeNull()
+  })
+})
+
+describe('face-tracking shapes (perfect sync) stay out of the menus', () => {
+  test('the 52 ARKit shapes, in the spellings models use', () => {
+    for (const name of ['eyeBlinkLeft', 'EyeBlinkLeft', 'eyeBlink_L', 'eyeBlinkL', 'ARKit_jawOpen', 'mouthSmile_R', 'tongueOut', 'cheekPuff', 'browInnerUp']) {
+      expect(isTrackingShape(name), name).toBe(true)
+    }
+  })
+
+  test('VSeeFace’s extra mouth shapes and brows', () => {
+    for (const name of ['SIL', 'CH', 'DD', 'FF', 'KK', 'NN', 'PP', 'RR', 'SS', 'TH', 'Brows up', 'Brows down']) {
+      expect(isTrackingShape(name), name).toBe(true)
+    }
+  })
+
+  test('faces and outfit parts aren’t mistaken for them', () => {
+    for (const name of ['happy', 'happy01', 'Smile_L', 'Wink', 'blink', 'Blush', 'hat01', 'Sil', 'Cool', 'mouth', 'sweat']) {
+      expect(isTrackingShape(name), name).toBe(false)
+    }
+  })
+
+  test('a perfect-sync model lists only its real faces', () => {
+    const names = ['happy', 'angry', 'blink', 'eyeBlinkLeft', 'jawOpen', 'mouthSmileLeft', 'tongueOut', 'SIL', 'Brows up', 'Wink']
+    const expressions = names.map(name => ({ name, binds: 1, targets: ['face'] }))
+    expect(faceList(expressions)).toEqual(['happy', 'angry', 'Wink', 'blink'])
+    expect(sortExpressions(expressions).outfit).toEqual([])
   })
 })
 

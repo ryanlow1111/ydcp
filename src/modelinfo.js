@@ -2,7 +2,7 @@
 // size and licence. Shared by the app (Models → About this model…) and the folder checker
 // (npm run check:models), so they always agree. Plain data only: no drawing, no file access.
 
-import { resolveFace, sortExpressions } from './library.js'
+import { isTrackingShape, resolveFace, sortExpressions } from './library.js'
 
 const GLB_MAGIC = 0x46546c67 // "glTF"
 const JSON_CHUNK = 0x4e4f534a // "JSON"
@@ -112,8 +112,9 @@ const listOf = (names, most = 10) => (names.length > most ? `${names.slice(0, mo
 /**
  * Plain-language notes about a model: { level, text }. `good` works as expected, `info` is worth
  * knowing, `warn` means something won't work on this model, `bad` means she can't be shown properly.
+ * `outfitNames` is the user's or profile's list of outfit parts, if any (see sortExpressions).
  */
-export function modelNotes(summary) {
+export function modelNotes(summary, outfitNames = null) {
   const notes = []
   const add = (level, text) => notes.push({ level, text })
   if (!summary.version) {
@@ -129,7 +130,7 @@ export function modelNotes(summary) {
     add('bad', `Missing body bones (${listOf(missing)}), so built-in motions can’t pose her properly.`)
   }
 
-  const { faces, outfit } = sortExpressions(summary.expressions)
+  const { faces, outfit } = sortExpressions(summary.expressions, outfitNames)
   const custom = faces.filter(name => name !== 'blink' && !STANDARD_FACES.includes(name))
   const found = STANDARD_FACES.filter(face => resolveFace(face, faces))
   if (faces.filter(name => name !== 'blink').length === 0) {
@@ -144,6 +145,10 @@ export function modelNotes(summary) {
   }
   if (custom.length > 0) {
     add('info', `${custom.length} custom expression${custom.length === 1 ? '' : 's'} in Motions → Expressions: ${listOf(custom)}.`)
+  }
+  const tracking = summary.expressions.filter(({ name, binds }) => binds > 0 && isTrackingShape(name)).length
+  if (tracking > 0) {
+    add('info', `${tracking} face-tracking shape${tracking === 1 ? '' : 's'} for VTuber apps (perfect sync). YDCP leaves them out of its menus.`)
   }
   if (outfit.length > 0) {
     add('info', `${outfit.length} outfit part${outfit.length === 1 ? '' : 's'} to show or hide, in the Outfit menu: ${listOf(outfit)}.`)

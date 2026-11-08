@@ -21,6 +21,7 @@
     "allow-current-model",
     "allow-frame-rate",
     "allow-saved-outfit",
+    "allow-sort-outfit",
     "allow-set-catalogue",
     "allow-add-model"
   ]

@@ -57,6 +57,10 @@ Some motions bring the hands up to the face. On a model with a big head or long 
 
 **Expressions:** **Menu → Motions → Expressions** lists the expressions the loaded model really has, custom ones included (outfit parts are in their own menu, see [Outfit parts](#outfit-parts)). If a standard face isn't there, she just keeps her usual look for that moment; a `faces` mapping can point it at one of the model's custom expressions.
 
+Some expressions are never listed:
+- **Face-tracking shapes** for VTuber apps ("perfect sync": the 52 ARKit shapes such as `jawOpen` and `mouthSmileLeft`, VSeeFace's extra mouth shapes `SIL` … `TH`, and `Brows up` / `Brows down`). They're pieces of faces, not faces. About this model counts them.
+- **Neutral**, the mouth shapes and gaze. If the model has a Neutral expression, it's her resting face whenever no other face shows (as in VSeeFace). The mouth shapes move while she talks.
+
 **Tuning tip:** start with no fix, look at the motion, then try small values (0.2–0.4) and grow from there.
 
 ## Outfit parts
@@ -69,7 +73,7 @@ YDCP decides an expression is an outfit part when its name doesn't say it's a fa
 - it changes only meshes or materials that none of the standard faces use, such as a separate hat mesh;
 - its name says so: hat, glasses, ribbon, tie, skirt, wings, 帽子, メガネ and similar.
 
-**Models → About this model…** lists what it found. If it's wrong, list the outfit parts in the profile's `outfit` field; that list replaces YDCP's guesses. What an outfit part does when ticked depends on the model: on some, ticking it shows the item; on others it hides it.
+**Models → About this model…** shows what it found as two groups, Faces and Outfit. If it's wrong, click an expression to move it to the other group; YDCP remembers that for the model, and **Let YDCP decide again** undoes it. A profile's `outfit` field does the same for everyone using your profile (the in-app choice wins over the profile). What an outfit part does when ticked depends on the model: on some, ticking it shows the item; on others it hides it.
 
 ## Licences
 

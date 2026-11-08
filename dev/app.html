@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>YDCP app in a browser (dev)</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+    <style>
+      /* A 320×480 "window" on a dark desk, so the transparent app is visible. */
+      html { background: #2b2a27; }
+      body { position: relative; width: 320px; height: 480px; outline: 1px dashed #666; }
+      #dev-panel { position: fixed; left: 340px; top: 12px; color: #eee; font: 12px system-ui, sans-serif; white-space: pre; }
+    </style>
+  </head>
+  <body>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

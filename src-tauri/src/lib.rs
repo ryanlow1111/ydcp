@@ -343,12 +343,41 @@ fn frame_rate<R: Runtime>(app: AppHandle<R>) -> u32 {
         .map_or(settings::DEFAULT_FRAME_RATE, |state| state.frame_rate)
 }
 
-/// The outfit parts last shown on `model`.
+/// What YDCP remembers about one model's outfit.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct OutfitPrefs {
+    /// The parts she wore last.
+    wearing: Vec<String>,
+    /// Which expressions are outfit parts, if the user sorted them (else YDCP decides).
+    parts: Option<Vec<String>>,
+}
+
+/// The outfit remembered for `model`.
 #[tauri::command]
-fn saved_outfit<R: Runtime>(app: AppHandle<R>, model: String) -> Vec<String> {
-    settings_path(&app)
-        .map(|path| settings::load(&path).outfit(&model))
-        .unwrap_or_default()
+fn saved_outfit<R: Runtime>(app: AppHandle<R>, model: String) -> OutfitPrefs {
+    let saved = settings_path(&app)
+        .map(|path| settings::load(&path))
+        .unwrap_or_default();
+    OutfitPrefs {
+        wearing: saved.outfit(&model),
+        parts: saved.outfit_parts(&model),
+    }
+}
+
+/// The user sorted `model`'s expressions in About this model: `parts` are its outfit parts
+/// (`None` lets YDCP decide again), and she now wears `wearing`.
+#[tauri::command]
+fn sort_outfit<R: Runtime>(
+    app: AppHandle<R>,
+    model: String,
+    parts: Option<Vec<String>>,
+    wearing: Vec<String>,
+) {
+    save_setting(&app, |settings| {
+        settings.set_outfit_parts(&model, parts.as_deref());
+        settings.set_outfit(&model, &wearing);
+    });
 }
 
 /// The front end tells the menu which motions, vibes, faces and outfit parts it has.
@@ -387,6 +416,7 @@ pub fn run() {
             current_model,
             frame_rate,
             saved_outfit,
+            sort_outfit,
             set_catalogue,
             add_model
         ])

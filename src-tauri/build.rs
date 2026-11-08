@@ -14,6 +14,7 @@ fn main() {
             "current_model",
             "frame_rate",
             "saved_outfit",
+            "sort_outfit",
             "set_catalogue",
             "add_model",
         ]),

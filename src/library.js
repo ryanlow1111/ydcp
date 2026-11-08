@@ -6,12 +6,42 @@ export const FACES = ['happy', 'angry', 'sad', 'surprised', 'relaxed', 'blink']
 /** Expressions that aren't faces: mouth shapes, gaze, one-eyed blinks, the neutral reset. */
 const NOT_FACES = new Set(['neutral', 'aa', 'ih', 'ou', 'ee', 'oh', 'lookUp', 'lookDown', 'lookLeft', 'lookRight', 'blinkLeft', 'blinkRight'])
 
+/** Apple ARKit's 52 face-tracking shapes ("perfect sync"), which VTuber apps drive from a camera. */
+const ARKIT = [
+  'eyeBlinkLeft', 'eyeLookDownLeft', 'eyeLookInLeft', 'eyeLookOutLeft', 'eyeLookUpLeft', 'eyeSquintLeft', 'eyeWideLeft',
+  'eyeBlinkRight', 'eyeLookDownRight', 'eyeLookInRight', 'eyeLookOutRight', 'eyeLookUpRight', 'eyeSquintRight', 'eyeWideRight',
+  'jawForward', 'jawLeft', 'jawRight', 'jawOpen', 'mouthClose', 'mouthFunnel', 'mouthPucker', 'mouthLeft', 'mouthRight',
+  'mouthSmileLeft', 'mouthSmileRight', 'mouthFrownLeft', 'mouthFrownRight', 'mouthDimpleLeft', 'mouthDimpleRight',
+  'mouthStretchLeft', 'mouthStretchRight', 'mouthRollLower', 'mouthRollUpper', 'mouthShrugLower', 'mouthShrugUpper',
+  'mouthPressLeft', 'mouthPressRight', 'mouthLowerDownLeft', 'mouthLowerDownRight', 'mouthUpperUpLeft', 'mouthUpperUpRight',
+  'browDownLeft', 'browDownRight', 'browInnerUp', 'browOuterUpLeft', 'browOuterUpRight', 'cheekPuff', 'cheekSquintLeft',
+  'cheekSquintRight', 'noseSneerLeft', 'noseSneerRight', 'tongueOut',
+]
+/** "eyeBlink_L", "eyeBlinkL", "EyeBlinkLeft", "ARKit_eyeBlinkLeft" → "eyeblinkleft". */
+const trackingKey = name =>
+  name
+    .replace(/([a-z])([LR])$/, '$1_$2')
+    .toLowerCase()
+    .replace(/^(arkit|ps|perfectsync)[\s_.-]*/, '')
+    .replace(/[\s_.-]+(l|r)$/, (_, side) => (side === 'l' ? 'left' : 'right'))
+    .replace(/[^a-z0-9]/g, '')
+const TRACKING = new Set([...ARKIT, 'Brows up', 'Brows down'].map(trackingKey))
+/** VSeeFace's extra mouth shapes, which it only uses spelled exactly like this. */
+const VISEMES = new Set(['SIL', 'CH', 'DD', 'FF', 'KK', 'NN', 'PP', 'RR', 'SS', 'TH'])
+
+/**
+ * Whether an expression is one of the shapes VTuber apps drive from face tracking (the 52 ARKit
+ * shapes, extra mouth shapes, brows). They're parts of faces, not faces, so menus leave them out.
+ */
+export const isTrackingShape = name => VISEMES.has(name.trim()) || TRACKING.has(trackingKey(name))
+
 /**
  * The faces a model really has, for the menu: standard ones first, then its custom ones, then
- * blink. `expressions` is [{ name, binds }]; an expression that moves nothing is left out.
+ * blink. `expressions` is [{ name, binds }]; an expression that moves nothing is left out, and
+ * so are mouth shapes, gaze and face-tracking shapes.
  */
 export function faceList(expressions) {
-  const usable = expressions.filter(({ name, binds }) => binds > 0 && !NOT_FACES.has(name)).map(({ name }) => name)
+  const usable = expressions.filter(({ name, binds }) => binds > 0 && !NOT_FACES.has(name) && !isTrackingShape(name)).map(({ name }) => name)
   const rank = name => {
     const standard = FACES.indexOf(name)
     return name === 'blink' ? 1000 : standard >= 0 ? standard : 100
@@ -43,8 +73,8 @@ const wordsOf = name =>
     .filter(Boolean)
 
 const STANDARD = new Set([...FACES, ...NOT_FACES].map(name => name.toLowerCase()))
-/** A standard expression, or a numbered one of them (happy01): always a face. */
-const isStandard = name => STANDARD.has(name.toLowerCase().replace(/[\s_-]*\d+$/, ''))
+/** A standard expression, or a numbered one of them (happy01): always a face, never an outfit part. */
+export const isStandard = name => STANDARD.has(name.toLowerCase().replace(/[\s_-]*\d+$/, ''))
 
 /**
  * Splits a model's expressions into faces (she shows one at a time) and outfit parts (shown or
@@ -56,7 +86,7 @@ const isStandard = name => STANDARD.has(name.toLowerCase().replace(/[\s_-]*\d+$/
  * so (hat, glasses, 帽子…). A profile's `outfit` list replaces these guesses.
  */
 export function sortExpressions(expressions, outfitNames = null) {
-  const usable = expressions.filter(({ binds }) => binds > 0)
+  const usable = expressions.filter(({ name, binds }) => binds > 0 && !isTrackingShape(name))
   let isOutfit
   if (Array.isArray(outfitNames)) {
     const wanted = new Set(outfitNames.map(name => name.toLowerCase()))

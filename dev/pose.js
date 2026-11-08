@@ -8,6 +8,10 @@ import { motionEntries, parseJson } from '../src/library.js'
 
 const params = new URLSearchParams(location.search)
 const modelName = params.get('model') ?? 'mw-miku'
+// ?raf=timer keeps her animating in a hidden tab (browsers pause animation frames there).
+if (params.get('raf') === 'timer') {
+  window.requestAnimationFrame = callback => setTimeout(() => callback(performance.now()), 16)
+}
 const canvas = document.getElementById('stage')
 // The canvas is 320×480 in a bigger page: make the pet think the window is that size.
 Object.defineProperty(window, 'innerWidth', { get: () => 320 })

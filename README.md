@@ -105,7 +105,7 @@ VRChat avatars usually come as a **Unity package** (`.unitypackage`) or an `.fbx
 - **Shaders:** VRChat shaders such as Poiyomi or lilToon don't exist in VRM. VRM uses the **MToon** toon shader, so colours and outlines may look a bit different. Adjust MToon settings in Unity or Blender if needed.
 - **Physics:** PhysBones don't transfer. Without VRM spring bones, the hair won't sway (the motions still work).
 - **Size:** very heavy avatars (more than 100 MB, or many millions of polygons) won't load. Use a lighter "Quest" or optimized version if the avatar has one.
-- **Gimmicks:** outfit toggles, particles and other gimmicks don't carry over. Pick the outfit you like before you export.
+- **Gimmicks:** outfit toggles, particles and other gimmicks don't carry over. Pick the outfit you like before you export. To keep an accessory switchable, make it a VRM expression marked **Is Binary** that hides or shows it; YDCP lists those in **Menu → Outfit**.
 
 ### Put the model into YDCP
 
