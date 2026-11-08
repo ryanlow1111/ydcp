@@ -111,6 +111,8 @@ VRChat avatars usually come as a **Unity package** (`.unitypackage`) or an `.fbx
 
 **Easy way:** click the YDCP icon (menu bar on Mac, notification area on Windows) → **Models → Add model…** → choose your `.vrm`. On the first launch you can also drag the `.vrm` onto the welcome card.
 
+**Or open the file with YDCP:** double-click the `.vrm` (Windows, or Mac if no other app opens VRM files), or right-click it → **Open With → YDCP**. YDCP copies it into its models folder and switches to it.
+
 **Or copy the file yourself** into the models folder:
 
 | | Models folder |
@@ -167,8 +169,12 @@ YDCP only reads your model from your own computer. It never uploads, shares or m
 |---|---|
 | Move her | Drag her |
 | Poke her | Click her quickly; she does a random cute moment |
+| Pat her head | Move the cursor gently back and forth over her head (no click); she smiles and leans in |
 | Click the app behind her | Just click; empty space is click-through |
-| Change size | Menu → **Size** → Small / Medium / Large |
+| Change size | Pinch on a trackpad, or hold **⌘** (Mac) / **Ctrl** (Windows) and scroll, over her. Or Menu → **Size** → Small / Medium / Large |
+| Break reminders | Menu → **Reminders → Break reminder** → every 30–90 minutes of work. Time away from the computer counts as a break |
+| Timer | Menu → **Reminders → Timer** → 5–60 minutes; she waves and tells you when time's up |
+| Start with your computer | Menu → **Start at login** (Mac: move YDCP to Applications first) |
 | Pick a motion | Menu → **Motions** → a moment, a vibe, or an expression |
 | Put on a hat, glasses… | Menu → **Outfit** (only for models that have outfit parts; any number at once, with any expression) |
 | Change model | Menu → **Models** |
@@ -258,11 +264,12 @@ Everything YDCP uses is in one folder: `~/.ydcp/` (Windows: `%USERPROFILE%\.ydcp
 .ydcp/
 ├── models/        your .vrm files (+ optional profiles)
 ├── anims/         your .vrma files (+ optional motions.json)
-├── settings.json  your choices: model, size, position, agent link
+├── settings.json  your choices: model, size, position, outfits, reminders, agent link
 └── state.json     only if an AI agent or script writes it
 ```
 
 **Uninstall:**
+- If you turned on **Start at login**, turn it off first (or delete `~/Library/LaunchAgents/YDCP.plist` on Mac).
 - **macOS:** quit YDCP, delete `/Applications/YDCP.app`, and delete `~/.ydcp/` if you want your models and settings gone too.
 - **Windows:** **Settings → Apps → YDCP → Uninstall**, then delete `%USERPROFILE%\.ydcp\` if you like.
 
@@ -274,7 +281,7 @@ Everything YDCP uses is in one folder: `~/.ydcp/` (Windows: `%USERPROFILE%\.ydcp
 - **No internet use while running.** No auto-update checks. Links (such as the Releases page) open in your browser only when you click them.
 - No open network ports. The AI agent link is a local file.
 - **No special permissions:** no screen recording, accessibility, input monitoring, camera or microphone.
-- YDCP reads and writes only its own `.ydcp` folder.
+- YDCP reads and writes only its own `.ydcp` folder, plus `.vrm` files you choose to open. The one exception is **Start at login**, which only when you turn it on adds a standard login entry (Mac: `~/Library/LaunchAgents/YDCP.plist`; Windows: the usual "Run" entry in your user registry).
 - The only time anything is downloaded is on Windows if WebView2 is missing during install, from Microsoft.
 
 The code is open, so you can check all of this yourself.

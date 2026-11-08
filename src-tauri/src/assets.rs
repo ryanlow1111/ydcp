@@ -164,6 +164,38 @@ pub fn copy_in(
     Ok(target)
 }
 
+/// Brings an opened file (a double-clicked `.vrm`) into `dir`: a file already in `dir`, or the
+/// same file opened before (same name and contents), is used as it is; anything else is copied
+/// in as `copy_in` does. Returns its name in `dir`.
+pub fn bring_in(
+    source: &Path,
+    dir: &Path,
+    extension: &str,
+    max_bytes: u64,
+) -> Result<String, String> {
+    let same_folder = match (source.parent().map(fs::canonicalize), fs::canonicalize(dir)) {
+        (Some(Ok(parent)), Ok(dir)) => parent == dir,
+        _ => false,
+    };
+    let name = source.file_name().and_then(|name| name.to_str());
+    if let Some(name) = name
+        && is_plain_name(name, extension)
+    {
+        if same_folder {
+            return Ok(name.to_string());
+        }
+        let existing = dir.join(name);
+        let same_size = matches!(
+            (fs::metadata(source), fs::metadata(&existing)),
+            (Ok(a), Ok(b)) if a.len() == b.len() && a.len() <= max_bytes
+        );
+        if same_size && fs::read(source).ok() == fs::read(&existing).ok() {
+            return Ok(name.to_string());
+        }
+    }
+    copy_in(source, dir, extension, max_bytes)
+}
+
 /// What's in a folder, to notice changes: each plain file's name, size and change time.
 pub fn folder_signature(dir: &Path) -> Vec<(String, u64, u128)> {
     let Ok(entries) = fs::read_dir(dir) else {
@@ -300,6 +332,31 @@ mod tests {
                 .contains("limit")
         );
         assert!(copy_in(&source_dir.join("missing.vrm"), &dir, ".vrm", 100).is_err());
+        fs::remove_dir_all(&dir).unwrap();
+        fs::remove_dir_all(&source_dir).unwrap();
+    }
+
+    #[test]
+    fn opened_files_are_not_copied_twice() {
+        let source_dir = temp_folder("open-src");
+        let dir = temp_folder("open-dst");
+        let source = source_dir.join("Lily.vrm");
+        fs::write(&source, b"model").unwrap();
+        assert_eq!(bring_in(&source, &dir, ".vrm", 100).unwrap(), "Lily.vrm");
+        // The same download opened again: the copy already there is used.
+        assert_eq!(bring_in(&source, &dir, ".vrm", 100).unwrap(), "Lily.vrm");
+        // A file already in the models folder is used where it is.
+        assert_eq!(
+            bring_in(&dir.join("Lily.vrm"), &dir, ".vrm", 100).unwrap(),
+            "Lily.vrm"
+        );
+        // A different model with the same name gets its own copy.
+        fs::write(&source, b"other model").unwrap();
+        assert_eq!(
+            bring_in(&source, &dir, ".vrm", 100).unwrap(),
+            "Lily (2).vrm"
+        );
+        assert_eq!(fs::read_dir(&dir).unwrap().count(), 2);
         fs::remove_dir_all(&dir).unwrap();
         fs::remove_dir_all(&source_dir).unwrap();
     }

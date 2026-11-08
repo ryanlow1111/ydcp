@@ -12,11 +12,17 @@ import { wireGestures } from './gestures.js'
 import { isStandard, motionEntries, parseJson } from './library.js'
 import { inspectModel, modelNotes } from './modelinfo.js'
 import { createMood } from './mood.js'
+import { createReminders, span } from './reminders.js'
 import {
   addModel,
+  breakEvery,
+  setTimerLeft,
+  showPet,
   currentModel,
   frameRate,
   savedOutfit,
+  petScale,
+  setPetScale,
   listAnims,
   modelsFolder,
   moveWindowTo,
@@ -57,12 +63,13 @@ let outfitParts = null
 /** Credits for the motions in use (from motions.json). */
 let motionCredits = []
 const mood = createMood({ now: Date.now() })
+const reminders = createReminders({ now: Date.now() })
 
 // ---- Speech bubble ---------------------------------------------------------------------------
 
 let bubbleTimer = 0
 /** Shows `line` in her bubble for a few seconds. */
-function say(line, { talk = true } = {}) {
+function say(line, { talk = true, hold = 0 } = {}) {
   if (!line) {
     return
   }
@@ -72,7 +79,7 @@ function say(line, { talk = true } = {}) {
   clearTimeout(bubbleTimer)
   bubble.textContent = line
   bubble.classList.remove('hidden')
-  bubbleTimer = setTimeout(() => bubble.classList.add('hidden'), 2500 + line.length * 60)
+  bubbleTimer = setTimeout(() => bubble.classList.add('hidden'), Math.max(hold, 2500 + line.length * 60))
 }
 
 // ---- Her mood ----------------------------------------------------------------------------------
@@ -111,7 +118,36 @@ function act(actions) {
   }
 }
 
-setInterval(() => act(mood.tick(Date.now())), 5000)
+// ---- Reminders (Menu → Reminders): a break after a stretch of work, and a timer -----------------
+
+/** A reminder is due: she waves and says so, and her bubble stays up a while. */
+async function remind({ kind, line }) {
+  if (!pet || !model) {
+    return
+  }
+  if (kind === 'timer') {
+    // You asked for this one, so she comes back if she was hidden.
+    await showPet().catch(() => {})
+  }
+  if (mood.asleep) {
+    act(mood.activity(Date.now()))
+  }
+  pet.playMoment('wave', { quiet: true })
+  say(line, { hold: 20000 })
+}
+
+function tickReminders(time) {
+  for (const action of reminders.tick(time)) {
+    remind(action)
+  }
+  setTimerLeft(reminders.timerLeft(time)).catch(() => {})
+}
+
+setInterval(() => {
+  const time = Date.now()
+  act(mood.tick(time))
+  tickReminders(time)
+}, 5000)
 
 // ---- Cards (they catch every click while shown) ------------------------------------------------
 
@@ -295,6 +331,7 @@ async function ensurePet() {
     pet.lookAt(x, y)
     hit.aim(x, y, inside)
     act(mood.activity(Date.now()))
+    reminders.activity(Date.now())
   })
   wireGestures({
     element: canvas,
@@ -310,7 +347,64 @@ async function ensurePet() {
     },
     onPress: down => (down ? hit.hold() : hit.release()),
   })
+  wireResizing()
   return pet
+}
+
+/**
+ * Any size: pinch on a trackpad, or ⌘/Ctrl + scroll, while over her. A plain scroll does
+ * nothing, so scrolling past her never resizes her. Window resizes are sent one at a time.
+ */
+function wireResizing() {
+  let scale = 1
+  let wanted = null
+  let sending = false
+  let pinchStart = null
+  petScale()
+    .then(now => (scale = now))
+    .catch(() => {})
+  const send = async () => {
+    if (sending || wanted === null) {
+      return
+    }
+    sending = true
+    const target = wanted
+    wanted = null
+    scale = await setPetScale(target).catch(() => scale)
+    sending = false
+    send()
+  }
+  const resizeTo = target => {
+    wanted = Math.min(2, Math.max(0.5, target))
+    send()
+  }
+  canvas.addEventListener(
+    'wheel',
+    event => {
+      if (!(event.ctrlKey || event.metaKey) || pinchStart !== null) {
+        return
+      }
+      event.preventDefault()
+      const step = Math.max(-40, Math.min(40, event.deltaY))
+      resizeTo((wanted ?? scale) * Math.exp(-step * 0.005))
+    },
+    { passive: false },
+  )
+  // Safari's pinch events (macOS); other WebViews send pinches as Ctrl + wheel.
+  canvas.addEventListener('gesturestart', event => {
+    event.preventDefault()
+    pinchStart = wanted ?? scale
+  })
+  canvas.addEventListener('gesturechange', event => {
+    event.preventDefault()
+    if (pinchStart !== null) {
+      resizeTo(pinchStart * event.scale)
+    }
+  })
+  canvas.addEventListener('gestureend', event => {
+    event.preventDefault()
+    pinchStart = null
+  })
 }
 
 /** Loads model `name` (with its profile) and shows her; no name shows the welcome card. */
@@ -401,6 +495,22 @@ async function start() {
       case 'frameRate':
         pet?.setFrameRate(Number(id))
         break
+      case 'breakEvery':
+        reminders.setBreakEvery(Number(id), Date.now())
+        if (reminders.breakEvery > 0) {
+          say(`Okay! I’ll remind you to take a break every ${span(reminders.breakEvery).toLowerCase()}.`)
+        }
+        break
+      case 'timer':
+        reminders.startTimer(Number(id), Date.now())
+        say(`Okay! I’ll tell you in ${span(Number(id)).toLowerCase()}. ⏱`)
+        tickReminders(Date.now())
+        break
+      case 'cancelTimer':
+        reminders.cancelTimer()
+        say('Timer cancelled.')
+        tickReminders(Date.now())
+        break
       case 'about':
         showAbout()
         break
@@ -413,6 +523,7 @@ async function start() {
   await onProblem(message => say(`⚠️ ${message}`, { talk: false }))
   await onAgent(state => act(mood.agent(state, Date.now())))
 
+  reminders.setBreakEvery(await breakEvery().catch(() => 0), Date.now())
   await loadLibrary()
   await loadModel(await currentModel().catch(() => null))
 }

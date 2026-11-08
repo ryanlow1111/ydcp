@@ -14,7 +14,7 @@ mod menu;
 mod settings;
 mod watch;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use tauri::tray::TrayIconBuilder;
@@ -22,6 +22,7 @@ use tauri::{
     App, AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, Runtime, WebviewWindow,
     WindowEvent,
 };
+use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 use tauri_plugin_dialog::DialogExt;
 
 use menu::{Catalogue, MenuState, Pick, SharedMenu};
@@ -88,15 +89,59 @@ fn place_window<R: Runtime>(
 }
 
 /// Resizes her window, keeping her feet where they were (bottom-centre stays put).
-fn apply_size<R: Runtime>(window: &WebviewWindow<R>, size: Size) -> tauri::Result<()> {
+fn apply_scale<R: Runtime>(window: &WebviewWindow<R>, scale: f64) -> tauri::Result<f64> {
+    // Never taller than the screen she's on.
+    let fits = window
+        .current_monitor()?
+        .map(|monitor| {
+            f64::from(monitor.work_area().size.height) / monitor.scale_factor() * 0.95
+                / settings::logical_size(1.0).1
+        })
+        .unwrap_or(settings::MAX_SCALE);
+    let scale = scale
+        .min(fits)
+        .clamp(settings::MIN_SCALE, settings::MAX_SCALE);
     let before = window.outer_size()?;
     let position = window.outer_position()?;
-    let (width, height) = size.logical();
+    let (width, height) = settings::logical_size(scale);
     window.set_size(LogicalSize::new(width, height))?;
     let after = window.outer_size()?;
     let x = position.x + (before.width as i32 - after.width as i32) / 2;
     let y = position.y + before.height as i32 - after.height as i32;
-    window.set_position(PhysicalPosition::new(x, y))
+    window.set_position(PhysicalPosition::new(x, y))?;
+    Ok(scale)
+}
+
+/// Resizes her to `scale` (kept within limits), remembers it, and returns the size she got.
+fn set_scale<R: Runtime>(app: &AppHandle<R>, scale: f64) -> f64 {
+    let Some(window) = app.get_webview_window("main") else {
+        return scale;
+    };
+    let scale = match apply_scale(&window, scale) {
+        Ok(scale) => scale,
+        Err(error) => {
+            eprintln!("YDCP: couldn't resize: {error}");
+            return scale;
+        }
+    };
+    let preset_changed = app
+        .state::<SharedMenu>()
+        .0
+        .lock()
+        .map(|mut state| {
+            let before = Size::matching(state.scale);
+            state.scale = scale;
+            before != Size::matching(scale)
+        })
+        .unwrap_or(false);
+    save_setting(app, |settings| {
+        settings.scale = Some(scale);
+        settings.size = None;
+    });
+    if preset_changed {
+        menu::refresh(app);
+    }
+    scale
 }
 
 /// Remembers `model` as the chosen one (menu tick + settings).
@@ -148,6 +193,31 @@ fn add_model_dialog<R: Runtime>(app: &AppHandle<R>) {
                 }
             }
         });
+}
+
+/// A `.vrm` opened from Finder / File Explorer (double-click or Open With): it's brought into
+/// the models folder (unless it's there already) and she switches to it.
+fn open_model_files<R: Runtime>(app: &AppHandle<R>, paths: impl IntoIterator<Item = PathBuf>) {
+    let Some(path) = paths.into_iter().find(|path| is_vrm(path)) else {
+        return;
+    };
+    let brought = assets::models_dir(app)
+        .and_then(|dir| assets::bring_in(&path, &dir, ".vrm", assets::MAX_MODEL_BYTES));
+    match brought {
+        Ok(name) => {
+            watch::models_changed(app, false);
+            choose_model(app, &name);
+            let _ = app.emit_to("main", "pick", Pick::Model(name));
+        }
+        Err(error) => {
+            let _ = app.emit_to("main", "problem", error);
+        }
+    }
+}
+
+fn is_vrm(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("vrm"))
 }
 
 /// "Add motions…": pick .vrma files and copy them into the motions folder.
@@ -239,19 +309,10 @@ fn on_pick<R: Runtime>(app: &AppHandle<R>, pick: Pick) {
             let _ = app.emit_to("main", "pick", pick);
         }
         Pick::Size(ref id) => {
-            let Some(size) = Size::ALL.into_iter().find(|size| size.id() == id) else {
-                return;
-            };
-            if let Some(window) = window
-                && let Err(error) = apply_size(&window, size)
-            {
-                eprintln!("YDCP: couldn't resize: {error}");
+            if let Some(size) = Size::ALL.into_iter().find(|size| size.id() == id) {
+                set_scale(app, size.factor());
+                menu::refresh(app);
             }
-            if let Ok(mut state) = app.state::<SharedMenu>().0.lock() {
-                state.size = size;
-            }
-            save_setting(app, |settings| settings.size = Some(size));
-            menu::refresh(app);
         }
         Pick::OnTop => {
             let on_top = app
@@ -267,6 +328,41 @@ fn on_pick<R: Runtime>(app: &AppHandle<R>, pick: Pick) {
                 let _ = window.set_always_on_top(on_top);
             }
             save_setting(app, |settings| settings.always_on_top = Some(on_top));
+            menu::refresh(app);
+        }
+        Pick::BreakEvery(ref id) => {
+            let minutes = settings::valid_break_every(id.parse().ok());
+            if let Ok(mut state) = app.state::<SharedMenu>().0.lock() {
+                state.break_every = minutes;
+            }
+            save_setting(app, |settings| {
+                settings.break_every = (minutes > 0).then_some(minutes);
+            });
+            menu::refresh(app);
+            let _ = app.emit_to("main", "pick", Pick::BreakEvery(minutes.to_string()));
+        }
+        Pick::Timer(_) | Pick::CancelTimer => {
+            let _ = app.emit_to("main", "pick", pick);
+        }
+        Pick::StartAtLogin => {
+            let launcher = app.autolaunch();
+            let want = !launcher.is_enabled().unwrap_or(false);
+            let result = if want {
+                launcher.enable()
+            } else {
+                launcher.disable()
+            };
+            if let Err(error) = result {
+                let _ = app.emit_to(
+                    "main",
+                    "problem",
+                    format!("Couldn't change Start at login: {error}"),
+                );
+            }
+            let now = launcher.is_enabled().unwrap_or(false);
+            if let Ok(mut state) = app.state::<SharedMenu>().0.lock() {
+                state.start_at_login = now;
+            }
             menu::refresh(app);
         }
         Pick::Agent(ref id) => {
@@ -294,6 +390,32 @@ fn on_pick<R: Runtime>(app: &AppHandle<R>, pick: Pick) {
         Pick::OpenFolder => open_folder(app),
         Pick::Quit => app.exit(0),
     }
+}
+
+/// Why YDCP can't start at login from where it's running, if it can't: macOS runs an app
+/// opened straight from Downloads (or from the disk image) from a temporary copy, and a login
+/// item pointing there would break.
+fn login_blocked() -> Option<&'static str> {
+    let exe = std::env::current_exe().ok()?;
+    let path = exe.to_string_lossy();
+    login_blocked_for(&path)
+}
+
+fn login_blocked_for(path: &str) -> Option<&'static str> {
+    (cfg!(target_os = "macos")
+        && (path.contains("/AppTranslocation/") || path.starts_with("/Volumes/")))
+    .then_some("move YDCP to Applications first")
+}
+
+/// Reads whether YDCP starts at login. If it does, the login item is written again, so it
+/// follows the app if the user moved it.
+fn start_at_login<R: Runtime>(app: &AppHandle<R>, blocked: bool) -> bool {
+    let launcher = app.autolaunch();
+    let enabled = launcher.is_enabled().unwrap_or(false);
+    if enabled && !blocked {
+        let _ = launcher.enable();
+    }
+    enabled
 }
 
 /// The menu bar (macOS) / notification-area (Windows) icon and its menu.
@@ -332,6 +454,65 @@ fn set_click_through<R: Runtime>(window: WebviewWindow<R>, on: bool) -> Result<(
 #[tauri::command]
 fn current_model<R: Runtime>(app: AppHandle<R>) -> Option<String> {
     app.state::<SharedMenu>().0.lock().ok()?.model.clone()
+}
+
+/// Her size as a factor of 320 × 480.
+#[tauri::command]
+fn pet_scale<R: Runtime>(app: AppHandle<R>) -> f64 {
+    app.state::<SharedMenu>()
+        .0
+        .lock()
+        .map_or(1.0, |state| state.scale)
+}
+
+/// Resizes her (pinch or ⌘/Ctrl-scroll over her); returns the size she got.
+#[tauri::command]
+fn set_pet_scale<R: Runtime>(app: AppHandle<R>, scale: f64) -> f64 {
+    if scale.is_finite() {
+        set_scale(&app, scale)
+    } else {
+        pet_scale(app)
+    }
+}
+
+/// Break reminders every so many minutes (0: off).
+#[tauri::command]
+fn break_every<R: Runtime>(app: AppHandle<R>) -> u32 {
+    app.state::<SharedMenu>()
+        .0
+        .lock()
+        .map_or(0, |state| state.break_every)
+}
+
+/// The front end's timer: minutes left (or none), for the menu.
+#[tauri::command]
+fn set_timer_left<R: Runtime>(app: AppHandle<R>, minutes: Option<u32>) {
+    let changed = app
+        .state::<SharedMenu>()
+        .0
+        .lock()
+        .map(|mut state| std::mem::replace(&mut state.timer_left, minutes) != minutes)
+        .unwrap_or(false);
+    if changed {
+        menu::refresh(&app);
+    }
+}
+
+/// Shows her if she was hidden (a timer she was asked to keep went off).
+#[tauri::command]
+fn show_pet<R: Runtime>(app: AppHandle<R>) {
+    let Some(window) = app.get_webview_window("main") else {
+        return;
+    };
+    if window.is_visible().unwrap_or(true) {
+        return;
+    }
+    let _ = window.show();
+    app.state::<cursor::Geometry>().refresh(&window);
+    if let Ok(mut state) = app.state::<SharedMenu>().0.lock() {
+        state.visible = true;
+    }
+    menu::refresh(&app);
 }
 
 /// The chosen frame rate.
@@ -399,8 +580,26 @@ fn add_model<R: Runtime>(app: AppHandle<R>) {
 /// Starts the app.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // Windows starts a second YDCP for a double-clicked .vrm; it hands the file to this one and
+    // quits. (macOS keeps one copy running and sends the file as an Opened event instead.)
+    #[cfg(windows)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
+        open_model_files(
+            app,
+            args.into_iter()
+                .skip(1)
+                .map(|arg| Path::new(&cwd).join(arg)),
+        );
+    }));
+    builder
         .plugin(tauri_plugin_dialog::init())
+        // "Start at login", used from Rust only. LaunchAgent, not AppleScript: no prompt to
+        // let YDCP control System Events.
+        .plugin(tauri_plugin_autostart::init(
+            MacosLauncher::LaunchAgent,
+            None,
+        ))
         .manage(cursor::PendingMove::default())
         .manage(cursor::Geometry::default())
         .manage(SharedMenu::default())
@@ -415,6 +614,11 @@ pub fn run() {
             set_click_through,
             current_model,
             frame_rate,
+            pet_scale,
+            set_pet_scale,
+            break_every,
+            set_timer_left,
+            show_pet,
             saved_outfit,
             sort_outfit,
             set_catalogue,
@@ -451,33 +655,86 @@ pub fn run() {
                 .clone()
                 .filter(|model| models.contains(model))
                 .or_else(|| models.first().cloned());
-            let size = saved.size.unwrap_or_default();
+            let scale = settings::valid_scale(saved.scale, saved.size);
             let on_top = saved.always_on_top.unwrap_or(true);
             let agent_link = saved.agent_link.unwrap_or_default();
             let frame_rate = settings::valid_frame_rate(saved.frame_rate);
+            let break_every = settings::valid_break_every(saved.break_every);
+            let login_blocked = login_blocked();
+            let start_at_login = start_at_login(app.handle(), login_blocked.is_some());
             if let Ok(mut state) = app.state::<SharedMenu>().0.lock() {
                 *state = MenuState {
                     models,
                     model,
-                    size,
+                    scale,
                     on_top,
                     agent_link,
                     frame_rate,
+                    start_at_login,
+                    login_blocked,
+                    break_every,
                     ..MenuState::default()
                 };
             }
 
             add_tray(app)?;
             if let Some(window) = app.get_webview_window("main") {
-                let (width, height) = size.logical();
+                let (width, height) = settings::logical_size(scale);
                 window.set_size(LogicalSize::new(width, height))?;
                 window.set_always_on_top(on_top)?;
                 place_window(&window, saved.position)?;
                 cursor::start(window);
             }
             watch::start(app.handle().clone());
+            // Windows: started by double-clicking a .vrm.
+            open_model_files(app.handle(), std::env::args_os().skip(1).map(PathBuf::from));
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running YDCP");
+        .build(tauri::generate_context!())
+        .expect("error while starting YDCP")
+        .run(|app, event| {
+            // macOS: a .vrm double-clicked or opened with YDCP, at launch or while running.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Opened { urls } = event {
+                open_model_files(
+                    app,
+                    urls.into_iter().filter_map(|url| url.to_file_path().ok()),
+                );
+            }
+            #[cfg(not(target_os = "macos"))]
+            let _ = (app, event);
+        });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_vrm_files_are_opened() {
+        assert!(is_vrm(Path::new("/x/Lily.vrm")));
+        assert!(is_vrm(Path::new(r"C:\x\Lily.VRM")));
+        assert!(!is_vrm(Path::new("/x/Lily.vrma")));
+        assert!(!is_vrm(Path::new("--flag")));
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn start_at_login_needs_a_real_install_on_macos() {
+        assert!(login_blocked_for("/Applications/YDCP.app/Contents/MacOS/ydcp").is_none());
+        assert!(login_blocked_for("/Users/me/Applications/YDCP.app/Contents/MacOS/ydcp").is_none());
+        assert!(
+            login_blocked_for(
+                "/private/var/folders/x/AppTranslocation/ABC/d/YDCP.app/Contents/MacOS/ydcp"
+            )
+            .is_some()
+        );
+        assert!(login_blocked_for("/Volumes/YDCP/YDCP.app/Contents/MacOS/ydcp").is_some());
+    }
+
+    #[test]
+    #[cfg(not(target_os = "macos"))]
+    fn start_at_login_works_from_anywhere_elsewhere() {
+        assert!(login_blocked_for(r"C:\Program Files\YDCP\ydcp.exe").is_none());
+    }
 }

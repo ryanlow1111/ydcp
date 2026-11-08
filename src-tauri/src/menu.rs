@@ -70,12 +70,21 @@ pub struct MenuState {
     pub catalogue: Catalogue,
     pub vibe: String,
     pub face: Option<String>,
-    pub size: Size,
+    /// Her size as a factor of 320 × 480; the Size menu ticks a preset if it matches.
+    pub scale: f64,
     pub on_top: bool,
+    /// Whether YDCP starts when the user logs in (the system's own setting, read at launch).
+    pub start_at_login: bool,
+    /// Why "Start at login" can't be used from where YDCP is running, if it can't.
+    pub login_blocked: Option<&'static str>,
     pub visible: bool,
     pub agent_link: AgentLink,
     /// 60 or 30 frames a second.
     pub frame_rate: u32,
+    /// Break reminders every so many minutes (0: off).
+    pub break_every: u32,
+    /// Minutes left on the timer, if one is running (the front end keeps the time).
+    pub timer_left: Option<u32>,
     /// Whether `~/.ydcp/state.json` exists (an agent hook has written it).
     pub agent_found: bool,
 }
@@ -89,11 +98,15 @@ impl Default for MenuState {
             // Calm by default: she stays on Idle unless the menu picks another vibe.
             vibe: "idle".into(),
             face: None,
-            size: Size::Medium,
+            scale: 1.0,
             on_top: true,
+            start_at_login: false,
+            login_blocked: None,
             visible: true,
             agent_link: AgentLink::Off,
             frame_rate: settings::DEFAULT_FRAME_RATE,
+            break_every: 0,
+            timer_left: None,
             agent_found: false,
         }
     }
@@ -118,8 +131,12 @@ pub enum Pick {
     ReloadMotions,
     Size(String),
     OnTop,
+    StartAtLogin,
     Agent(String),
     FrameRate(String),
+    BreakEvery(String),
+    Timer(String),
+    CancelTimer,
     OpenFolder,
     About,
     AboutModel,
@@ -144,8 +161,12 @@ impl Pick {
             "reload-motions" => Pick::ReloadMotions,
             "size" => Pick::Size(rest.to_string()),
             "on-top" => Pick::OnTop,
+            "start-at-login" => Pick::StartAtLogin,
             "agent" => Pick::Agent(rest.to_string()),
             "frame-rate" => Pick::FrameRate(rest.to_string()),
+            "break-every" => Pick::BreakEvery(rest.to_string()),
+            "timer" => Pick::Timer(rest.to_string()),
+            "cancel-timer" => Pick::CancelTimer,
             "open-folder" => Pick::OpenFolder,
             "about" => Pick::About,
             "about-model" => Pick::AboutModel,
@@ -302,9 +323,20 @@ pub fn build<R: Runtime, M: Manager<R>>(app: &M, state: &MenuState) -> tauri::Re
         size_items.push(Box::new(check(
             &format!("size:{}", size.id()),
             size.label(),
-            state.size == size,
+            Size::matching(state.scale) == Some(size),
         )?));
     }
+    size_items.push(Box::new(separator()?));
+    size_items.push(Box::new(MenuItem::new(
+        app,
+        if cfg!(target_os = "macos") {
+            "Any size: pinch or ⌘-scroll over her"
+        } else {
+            "Any size: Ctrl-scroll over her"
+        },
+        false,
+        None::<&str>,
+    )?));
     let sizes = Submenu::with_items(app, "Size", true, &refs(&size_items))?;
 
     // Frame rate ▸
@@ -321,6 +353,55 @@ pub fn build<R: Runtime, M: Manager<R>>(app: &M, state: &MenuState) -> tauri::Re
             )?,
         ],
     )?;
+
+    // Reminders ▸ — a break reminder and a timer, both off unless picked.
+    let mut break_items: Vec<Box<dyn IsMenuItem<R>>> = vec![Box::new(check(
+        "break-every:0",
+        "Off",
+        state.break_every == 0,
+    )?)];
+    for minutes in settings::BREAK_CHOICES {
+        break_items.push(Box::new(check(
+            &format!("break-every:{minutes}"),
+            &format!("Every {minutes} minutes"),
+            state.break_every == minutes,
+        )?));
+    }
+    let mut timer_items: Vec<Box<dyn IsMenuItem<R>>> = Vec::new();
+    for minutes in settings::TIMER_CHOICES {
+        timer_items.push(Box::new(item(
+            &format!("timer:{minutes}"),
+            &format!("{minutes} minutes"),
+        )?));
+    }
+    let mut reminder_items: Vec<Box<dyn IsMenuItem<R>>> = Vec::new();
+    if let Some(left) = state.timer_left {
+        reminder_items.push(Box::new(MenuItem::new(
+            app,
+            format!("Timer: {left} min left"),
+            false,
+            None::<&str>,
+        )?));
+        reminder_items.push(Box::new(item("cancel-timer", "Cancel timer")?));
+        reminder_items.push(Box::new(separator()?));
+    }
+    reminder_items.push(Box::new(Submenu::with_items(
+        app,
+        "Break reminder",
+        true,
+        &refs(&break_items),
+    )?));
+    reminder_items.push(Box::new(Submenu::with_items(
+        app,
+        if state.timer_left.is_some() {
+            "New timer"
+        } else {
+            "Timer"
+        },
+        true,
+        &refs(&timer_items),
+    )?));
+    let reminders = Submenu::with_items(app, "Reminders", true, &refs(&reminder_items))?;
 
     // React to agent ▸ (off by default; for people who use an AI agent or a script).
     let mut agent_items: Vec<Box<dyn IsMenuItem<R>>> = Vec::new();
@@ -352,6 +433,17 @@ pub fn build<R: Runtime, M: Manager<R>>(app: &M, state: &MenuState) -> tauri::Re
         },
     )?;
     let on_top = check("on-top", "Always on top", state.on_top)?;
+    let login = match state.login_blocked {
+        Some(why) => CheckMenuItem::with_id(
+            app,
+            "start-at-login",
+            format!("Start at login ({why})"),
+            false,
+            false,
+            None::<&str>,
+        )?,
+        None => check("start-at-login", "Start at login", state.start_at_login)?,
+    };
     let folder = item("open-folder", "Open pet folder")?;
     let about = item("about", "About YDCP…")?;
     let quit = item("quit", "Quit YDCP")?;
@@ -361,9 +453,11 @@ pub fn build<R: Runtime, M: Manager<R>>(app: &M, state: &MenuState) -> tauri::Re
         items.push(&outfit);
     }
     items.extend([
-        &sizes as &dyn IsMenuItem<R>,
+        &reminders as &dyn IsMenuItem<R>,
+        &sizes,
         &rates,
         &on_top,
+        &login,
         &agent,
         &separators[1],
         &folder,
@@ -426,6 +520,13 @@ mod tests {
             Pick::parse("frame-rate:30"),
             Some(Pick::FrameRate("30".into()))
         );
+        assert_eq!(Pick::parse("start-at-login"), Some(Pick::StartAtLogin));
+        assert_eq!(
+            Pick::parse("break-every:45"),
+            Some(Pick::BreakEvery("45".into()))
+        );
+        assert_eq!(Pick::parse("timer:25"), Some(Pick::Timer("25".into())));
+        assert_eq!(Pick::parse("cancel-timer"), Some(Pick::CancelTimer));
         assert_eq!(Pick::parse("nonsense"), None);
     }
 

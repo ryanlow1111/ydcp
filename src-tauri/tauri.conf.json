@@ -45,6 +45,16 @@
     "longDescription": "An open-source 3D desktop companion for macOS and Windows. Bring your own VRM model. No account, no internet, no tracking.",
     "license": "MIT",
     "licenseFile": "../LICENSE",
+    "fileAssociations": [
+      {
+        "ext": ["vrm"],
+        "name": "VRM model",
+        "description": "VRM 3D model",
+        "role": "Viewer",
+        "rank": "Alternate",
+        "mimeType": "model/gltf-binary"
+      }
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

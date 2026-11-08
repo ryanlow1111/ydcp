@@ -56,6 +56,13 @@ const commands = {
   },
   read_motions: () => null,
   frame_rate: () => 60,
+  pet_scale: () => 1,
+  set_pet_scale: ({ scale }) => Math.min(2, Math.max(0.5, scale)),
+  break_every: () => settings.breakEvery ?? 0,
+  set_timer_left: ({ minutes }) => {
+    fake.timerLeft = minutes
+  },
+  show_pet: () => {},
   saved_outfit: ({ model }) => ({ wearing: settings.outfits[model] ?? [], parts: settings.outfitParts[model] ?? null }),
   sort_outfit: ({ model, parts, wearing }) => {
     if (parts === null) {

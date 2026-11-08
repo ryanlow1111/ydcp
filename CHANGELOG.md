@@ -11,6 +11,11 @@ All notable changes to YDCP are listed here. The format follows [Keep a Changelo
 - Sorted wrong? Models → About this model… shows a model's own expressions as Faces and Outfit; click one to move it to the other group. Remembered per model.
 - Her mouth moves while she talks.
 - A model's Neutral expression is her resting face, as in VSeeFace.
+- Any size: pinch on a trackpad, or ⌘/Ctrl + scroll over her, from half size to double (Small / Medium / Large stay as presets). She grows from her feet and never gets taller than the screen.
+- Head pats: move the cursor gently back and forth over her head and she smiles, leans into it, and sometimes says something. No click needed.
+- Menu → Reminders: a break reminder every 30–90 minutes of work (time away counts as a break), and a 5–60 minute timer. She waves and tells you; no sound. Both off unless you pick them.
+- Menu → Start at login (off by default). On a Mac, YDCP must be in Applications first.
+- Open a `.vrm` with YDCP (double-click, or Open With): it's copied into the models folder, unless it's there already, and she switches to it.
 - Face-tracking shapes (perfect sync: the 52 ARKit shapes, VSeeFace's extra mouth shapes and brows) stay out of the menus, so perfect-sync models no longer list dozens of meaningless "expressions".
 
 ### Changed

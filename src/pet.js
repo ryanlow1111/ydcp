@@ -27,6 +27,8 @@ const FADE = 0.6
 export const VIBE_CHOICES = ['idle', 'sway', 'bop', 'sleepy']
 /** Her resting smile. */
 const SOFT_SMILE = 0.35
+/** What she might say when patted (now and then, never every time). */
+const PAT_LINES = ['Ehehe…', 'Mmm~', 'That’s nice.', '♪']
 /** Mouth shapes for talking, the open ones more often. */
 const VOWELS = ['aa', 'oh', 'aa', 'ee', 'ih', 'ou', 'oh']
 /** How long she moves her mouth for a line: about a syllable every three letters, within limits. */
@@ -85,6 +87,57 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     const clamp = value => Math.max(-1, Math.min(1, value))
     cursor.x = clamp((x - innerWidth / 2) / (innerWidth * 1.5))
     cursor.y = clamp((y - innerHeight * 0.3) / innerHeight)
+    feelPat(x, y)
+  }
+
+  // ---- Head pats: the cursor stroking back and forth over her head (no click needed) ------
+
+  const pat = { lastX: null, direction: 0, turns: [], until: 0, amount: 0, saidAt: -Infinity }
+  const headPoint = new THREE.Vector3()
+  const headEdge = new THREE.Vector3()
+
+  /** Her head on screen (window pixels): a circle over the top of her face. */
+  function headCircle() {
+    if (!vrm) {
+      return null
+    }
+    const { eyeY, halfWidth } = figure.face
+    const toScreen = point => {
+      vrm.scene.localToWorld(point).project(camera)
+      return { x: ((point.x + 1) / 2) * innerWidth, y: ((1 - point.y) / 2) * innerHeight }
+    }
+    const centre = toScreen(headPoint.set(0, eyeY + halfWidth * 0.7, 0))
+    const edge = toScreen(headEdge.set(halfWidth * 1.6, eyeY + halfWidth * 0.7, 0))
+    return { ...centre, r: Math.abs(edge.x - centre.x) }
+  }
+
+  /** Counts the cursor's turns over her head: three within 1.5 s is a pat. */
+  function feelPat(x, y) {
+    const t = timer.getElapsed()
+    const head = headCircle()
+    if (!head || asleep || Math.hypot(x - head.x, y - head.y) > head.r) {
+      pat.lastX = null
+      pat.direction = 0
+      return
+    }
+    if (pat.lastX === null) {
+      pat.lastX = x
+    } else if (Math.abs(x - pat.lastX) > head.r * 0.08) {
+      const direction = Math.sign(x - pat.lastX)
+      if (pat.direction !== 0 && direction !== pat.direction) {
+        pat.turns.push(t)
+      }
+      pat.direction = direction
+      pat.lastX = x
+    }
+    pat.turns = pat.turns.filter(at => t - at < 1.5)
+    if (pat.turns.length >= 3) {
+      if (t > pat.until && t - pat.saidAt > 45 && Math.random() < 0.5) {
+        pat.saidAt = t
+        onSay(PAT_LINES[Math.floor(Math.random() * PAT_LINES.length)])
+      }
+      pat.until = t + 0.9
+    }
   }
 
   // ---- Her model and its motions ----------------------------------------------------------
@@ -582,8 +635,11 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
       }
     }
 
-    // Head, neck and chest turn toward the cursor, eased; less during a moment.
-    const follow = oneOff ? 0.35 : base === loops.sleepy ? 0 : 1
+    // Being patted: she leans into it, and looks up at the cursor less.
+    pat.amount += ((t < pat.until ? 1 : 0) - pat.amount) * Math.min(1, dt * 4)
+
+    // Head, neck and chest turn toward the cursor, eased; less during a moment or a pat.
+    const follow = (oneOff ? 0.35 : base === loops.sleepy ? 0 : 1) * (1 - pat.amount * 0.7)
     gaze.x += (cursor.x * follow - gaze.x) * Math.min(1, dt * 4)
     gaze.y += (cursor.y * follow - gaze.y) * Math.min(1, dt * 4)
     lookTarget.position.set(cursor.x, -cursor.y * 0.7, -2)
@@ -599,13 +655,20 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
         node.quaternion.multiply(extra)
       }
     }
+    const head = vrm.humanoid.getNormalizedBoneNode('head')
+    if (head && pat.amount > 0.01) {
+      const side = vrm0 ? -1 : 1
+      head.quaternion.multiply(extra.setFromEuler(tilt.set(0.14 * pat.amount * side, 0, 0.1 * pat.amount * side)))
+    }
     holder.rotation.y = Math.sin(t * 0.3) * 0.05
 
     // A poke: a moment of surprise on her face (no hop: she stays where she stands).
     const sincePoke = t - pokedAt
 
-    // Faces: a held face wins, then a surprised poke, then the moment's face, else a soft smile.
-    const face = faceFor(heldFace ?? (sincePoke < 0.45 ? 'surprised' : momentFace))
+    // Faces: a held face wins, then a surprised poke, then a pat's contented smile (eyes closed
+    // if the model's relaxed face does that), then the moment's face, else a soft smile.
+    const patFace = faceFor('relaxed') ? 'relaxed' : 'happy'
+    const face = faceFor(heldFace ?? (sincePoke < 0.45 ? 'surprised' : pat.amount > 0.5 ? patFace : momentFace))
     const em = vrm.expressionManager
     if (em) {
       const smile = faceFor('happy')

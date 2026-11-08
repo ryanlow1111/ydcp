@@ -19,6 +19,18 @@ pub struct Position {
     pub y: i32,
 }
 
+/// The break reminder intervals the menu offers, in minutes (0 or anything else: off).
+pub const BREAK_CHOICES: [u32; 4] = [30, 45, 60, 90];
+/// The timer lengths the menu offers, in minutes.
+pub const TIMER_CHOICES: [u32; 6] = [5, 10, 15, 25, 45, 60];
+
+/// A break reminder interval from the settings or the menu; anything unknown is off (0).
+pub fn valid_break_every(minutes: Option<u32>) -> u32 {
+    minutes
+        .filter(|minutes| BREAK_CHOICES.contains(minutes))
+        .unwrap_or(0)
+}
+
 /// Frames a second unless the menu says otherwise.
 pub const DEFAULT_FRAME_RATE: u32 = 60;
 
@@ -28,7 +40,26 @@ pub fn valid_frame_rate(rate: Option<u32>) -> u32 {
         .unwrap_or(DEFAULT_FRAME_RATE)
 }
 
-/// Her window's size: Small 0.75×, Medium 1×, Large 1.4× of 320 × 480.
+/// Her window at 1× is 320 × 480 logical pixels.
+const BASE_SIZE: (f64, f64) = (320.0, 480.0);
+/// How small and how big she can be made (pinch or ⌘/Ctrl-scroll over her).
+pub const MIN_SCALE: f64 = 0.5;
+pub const MAX_SCALE: f64 = 2.0;
+
+/// The window's size in logical pixels at `scale`.
+pub fn logical_size(scale: f64) -> (f64, f64) {
+    (BASE_SIZE.0 * scale, BASE_SIZE.1 * scale)
+}
+
+/// Her size from the settings: `scale` if it's usable, else the older `size` preset, else 1×.
+pub fn valid_scale(scale: Option<f64>, size: Option<Size>) -> f64 {
+    match scale {
+        Some(scale) if scale.is_finite() => scale.clamp(MIN_SCALE, MAX_SCALE),
+        _ => size.unwrap_or_default().factor(),
+    }
+}
+
+/// The menu's size presets: Small 0.75×, Medium 1×, Large 1.4× of 320 × 480.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Size {
@@ -41,14 +72,19 @@ pub enum Size {
 impl Size {
     pub const ALL: [Size; 3] = [Size::Small, Size::Medium, Size::Large];
 
-    /// The window's size in logical pixels.
-    pub fn logical(self) -> (f64, f64) {
-        let factor = match self {
+    pub fn factor(self) -> f64 {
+        match self {
             Size::Small => 0.75,
             Size::Medium => 1.0,
             Size::Large => 1.4,
-        };
-        (320.0 * factor, 480.0 * factor)
+        }
+    }
+
+    /// The preset `scale` is, if it's one of them.
+    pub fn matching(scale: f64) -> Option<Size> {
+        Size::ALL
+            .into_iter()
+            .find(|size| (size.factor() - scale).abs() < 0.01)
     }
 
     pub fn label(self) -> &'static str {
@@ -77,6 +113,9 @@ pub struct Settings {
     pub model: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub size: Option<Size>,
+    /// Her size as a factor of 320 × 480 (0.5–2); replaces `size` when present.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale: Option<f64>,
     #[serde(
         default,
         rename = "alwaysOnTop",
@@ -88,6 +127,13 @@ pub struct Settings {
     pub agent_link: Option<AgentLink>,
     #[serde(default, rename = "frameRate", skip_serializing_if = "Option::is_none")]
     pub frame_rate: Option<u32>,
+    /// Break reminders every so many minutes of work (off unless set).
+    #[serde(
+        default,
+        rename = "breakEvery",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub break_every: Option<u32>,
     /// The outfit parts shown on each model (by file name), e.g. `"lily.vrm": ["hat01"]`.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub outfits: BTreeMap<String, Vec<String>>,
@@ -305,6 +351,13 @@ mod tests {
     }
 
     #[test]
+    fn break_reminders_are_off_unless_a_menu_choice() {
+        assert_eq!(valid_break_every(None), 0);
+        assert_eq!(valid_break_every(Some(45)), 45);
+        assert_eq!(valid_break_every(Some(7)), 0);
+    }
+
+    #[test]
     fn frame_rate_falls_back_to_60() {
         assert_eq!(valid_frame_rate(Some(30)), 30);
         assert_eq!(valid_frame_rate(Some(60)), 60);
@@ -314,9 +367,21 @@ mod tests {
 
     #[test]
     fn sizes_scale_the_window() {
-        assert_eq!(Size::Medium.logical(), (320.0, 480.0));
-        assert_eq!(Size::Small.logical(), (240.0, 360.0));
-        assert_eq!(Size::Large.logical(), (448.0, 672.0));
+        assert_eq!(logical_size(Size::Medium.factor()), (320.0, 480.0));
+        assert_eq!(logical_size(Size::Small.factor()), (240.0, 360.0));
+        assert_eq!(logical_size(Size::Large.factor()), (448.0, 672.0));
+        assert_eq!(Size::matching(1.4), Some(Size::Large));
+        assert_eq!(Size::matching(1.2), None);
+    }
+
+    #[test]
+    fn scale_comes_from_the_settings_or_the_old_preset() {
+        assert_eq!(valid_scale(Some(1.25), Some(Size::Small)), 1.25);
+        assert_eq!(valid_scale(None, Some(Size::Large)), 1.4);
+        assert_eq!(valid_scale(None, None), 1.0);
+        assert_eq!(valid_scale(Some(9.0), None), MAX_SCALE);
+        assert_eq!(valid_scale(Some(0.1), None), MIN_SCALE);
+        assert_eq!(valid_scale(Some(f64::NAN), Some(Size::Small)), 0.75);
     }
 
     #[test]
