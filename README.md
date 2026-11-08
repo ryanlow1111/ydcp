@@ -29,6 +29,7 @@
 - [Troubleshooting](#troubleshooting)
 - [Your data and uninstalling](#your-data-and-uninstalling)
 - [Privacy](#privacy)
+- [Code signing policy](#code-signing-policy)
 - [Build from source](#build-from-source)
 - [Contributing](#contributing)
 - [Licence and credits](#licence-and-credits)
@@ -45,7 +46,7 @@ Get the latest version from the **[Releases page](../../releases/latest)**. macO
 | Windows 10/11 (most PCs) | `YDCP_<version>_x64-setup.exe` |
 | Windows on ARM (Surface Pro X, Snapdragon laptops, Windows in Parallels/UTM on a Mac) | `YDCP_<version>_arm64-setup.exe` |
 
-You can check your download against the `SHA256SUMS-*.txt` files on the release page. Step-by-step: [macOS](docs/install-macos.md) · [Windows](docs/install-windows.md).
+You can check your download against the `SHA256SUMS-*.txt` files on the release page. Step-by-step: [macOS](docs/install-macos.md) · [Windows](docs/install-windows.md) · [Code signing policy](docs/code-signing.md).
 
 ### macOS
 1. Open the `.dmg` and drag **YDCP** into **Applications**.
@@ -59,7 +60,7 @@ You can check your download against the `SHA256SUMS-*.txt` files on the release 
 
 ### Windows
 1. Run `YDCP_<version>_x64-setup.exe`. It installs just for you, with no admin rights needed.
-2. If Windows shows **"Windows protected your PC"**, click **More info → Run anyway**. This appears because early versions aren't code-signed yet.
+2. If Windows shows **"Windows protected your PC"**, click **More info → Run anyway**. This appears because early versions aren't code-signed yet (see the [code signing policy](docs/code-signing.md)).
 3. YDCP has no taskbar button. Look for its icon in the **notification area** at the bottom right; click **^** if it's hidden.
 4. YDCP uses Microsoft Edge WebView2. Windows 11 and up-to-date Windows 10 already have it. If not, the installer downloads it once from Microsoft.
 
@@ -304,6 +305,12 @@ The `.json` files above are plain text files that you can open in any text edito
 - The only time anything is downloaded is on Windows if WebView2 is missing during install, from Microsoft.
 
 The code is open, so you can check all of this yourself.
+
+---
+
+## Code signing policy
+
+Windows releases are being set up for free code signing by [SignPath Foundation](https://signpath.org/); until then they are unsigned. macOS releases are not signed by Apple. Who builds, reviews and approves signed files, and exactly what gets signed, is in **[docs/code-signing.md](docs/code-signing.md)**.
 
 ---
 

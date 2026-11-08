@@ -28,6 +28,12 @@ export function changelogSection(changelog, wanted) {
 
 const changes = changelogSection(readFileSync(join(root, 'CHANGELOG.md'), 'utf8'), version) ?? '_See CHANGELOG.md._'
 
+// The release workflow sets WINDOWS_SIGNED=true once Windows builds are signed through SignPath.
+const windows =
+  process.env.WINDOWS_SIGNED === 'true'
+    ? 'the installers are code-signed (publisher: **SignPath Foundation**). For a new version, SmartScreen may still say "Windows protected your PC" until enough people have installed it: **More info → Run anyway**.'
+    : 'this build isn\'t code-signed yet. If you see "Windows protected your PC": **More info → Run anyway**.'
+
 console.log(`${changes}
 
 ---
@@ -41,8 +47,10 @@ console.log(`${changes}
 | Windows on ARM | \`YDCP_${version}_arm64-setup.exe\` |
 
 - **macOS:** this build isn't notarized by Apple yet. If macOS won't open it: **System Settings → Privacy & Security → Open Anyway**. [Full steps](docs/install-macos.md)
-- **Windows:** this build isn't code-signed yet. If you see "Windows protected your PC": **More info → Run anyway**. [Full steps](docs/install-windows.md)
+- **Windows:** ${windows} [Full steps](docs/install-windows.md)
 - **You need your own VRM model.** See [Add your model](README.md#add-your-model).
 - Check your download against the \`SHA256SUMS-*.txt\` files below.
 
-🔒 YDCP uses no internet, no account and no tracking. Nothing you add leaves your computer.`)
+🔒 YDCP uses no internet, no account and no tracking. Nothing you add leaves your computer.
+
+[Code signing policy](docs/code-signing.md)`)

@@ -4,9 +4,14 @@ All notable changes to YDCP are listed here. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-11-08
+
+Your own lines for her, and a kinder word when things go wrong. macOS and Windows.
+
 ### Added
 - Your own lines for her: add to or replace her greetings, musings, pat lines, cheers and more, for every model (`~/.ydcp/lines.json`) or one character (a `lines` block in her profile). Changes are picked up without a restart. See [docs/lines.md](docs/lines.md).
 - She says something encouraging when the agent link reports `failed` without a line of its own.
+- A [code signing policy](docs/code-signing.md). Windows releases are ready to be signed for free through SignPath Foundation once it approves the project; this release is still unsigned.
 
 ### Changed
 - More cheer lines (eight instead of three, in every language), so agent cheers repeat less.

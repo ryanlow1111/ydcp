@@ -1,7 +1,7 @@
 {
   "name": "ydcp",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "YDCP — Your Desktop Companion Project: an open-source 3D desktop companion for macOS and Windows.",
   "license": "MIT",
   "author": "Ryan Low Jun Yen",

@@ -86,3 +86,53 @@ macOS and Windows are always released together from one tag.
 4. The **Release** workflow builds macOS (universal) and Windows (x64, ARM64) into **one draft release** with `SHA256SUMS-*.txt` files, plus the agent-link hook scripts (`ydcp-state.sh`, `ydcp-state.ps1`) that the Claude Code hooks guide downloads. If any build fails, nothing is published.
 5. Download the draft's files, install them on macOS and Windows, and run through the manual checklist in [docs/PLAN.md §11](docs/PLAN.md#11-testing).
 6. Press **Publish**. For a test build, either tick **Set as a pre-release** when publishing, or use a numeric pre-release version such as `0.1.0-1`, which is marked as a pre-release automatically. Names like `0.1.0-beta.1` don't work: Windows MSI installers only accept numeric pre-releases, and `npm run check:version` rejects them.
+
+Once Windows signing is set up (below), step 4 pauses on each Windows build until you approve its signing requests in SignPath: two per build (the app, then the installers), so four per release. Each one waits up to 2 hours.
+
+### Windows code signing (SignPath Foundation)
+
+Windows builds are signed for free through [SignPath Foundation](https://signpath.org/), which signs open-source projects. macOS stays unsigned. The release workflow is already wired for it, and it stays unsigned until the settings below exist. The policy users see is [docs/code-signing.md](docs/code-signing.md).
+
+**Before applying:** the repository must be public, with at least one published release. Turn on two-factor authentication on GitHub.
+
+1. Apply at [signpath.org](https://signpath.org/) with the repository link. Their conditions are at [signpath.org/terms](https://signpath.org/terms).
+2. Once approved, in SignPath:
+   - Note the **organization ID**, and create (or check) the project with the slug `ydcp`, linked to this GitHub repository as a trusted build system.
+   - Make sure it has the signing policies `test-signing` and `release-signing`. Release signing needs an approver: you.
+   - Create two **artifact configurations**:
+
+     `app`, for the app on its own (the GitHub artifact is a zip with `ydcp.exe` in it):
+     ```xml
+     <?xml version="1.0" encoding="utf-8"?>
+     <artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+       <zip-file>
+         <pe-file path="ydcp.exe" product-name="YDCP">
+           <authenticode-sign/>
+         </pe-file>
+       </zip-file>
+     </artifact-configuration>
+     ```
+
+     `installers`, for the installers built from the signed app:
+     ```xml
+     <?xml version="1.0" encoding="utf-8"?>
+     <artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+       <zip-file>
+         <pe-file path="*-setup.exe" max-matches="1" product-name="YDCP">
+           <authenticode-sign/>
+         </pe-file>
+         <msi-file path="*.msi" min-matches="0" max-matches="1">
+           <authenticode-sign/>
+         </msi-file>
+       </zip-file>
+     </artifact-configuration>
+     ```
+   - Create a **CI user** with the *Submitter* role on the project, and copy its API token.
+3. In GitHub, go to **Settings → Secrets and variables → Actions** and add:
+   - the secret `SIGNPATH_API_TOKEN`: the CI user's token
+   - the variable `SIGNPATH_ORGANIZATION_ID`
+   - the variable `SIGNPATH_PROJECT_SLUG`, only if the slug isn't `ydcp`
+4. Run the **Release** workflow by hand (**Actions → Release → Run workflow**). It signs with SignPath's test certificate, with no approval needed, which proves the setup works. Then tag a release as usual.
+5. Change the **Status** line at the top of [docs/code-signing.md](docs/code-signing.md), and the "aren't code-signed yet" lines in the README and [docs/install-windows.md](docs/install-windows.md).
+
+SignPath Foundation's conditions to keep in mind: every release is approved by hand; only code from this repository is signed; YDCP stays MIT with no proprietary parts; and the "Code signing policy" link stays on the README and on every release page.

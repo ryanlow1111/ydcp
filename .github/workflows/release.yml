@@ -43,6 +43,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
+          WINDOWS_SIGNED: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
         run: |
           VERSION="${TAG#v}"
           node scripts/release-notes.mjs "$VERSION" > notes.md
@@ -82,6 +83,14 @@ jobs:
       contents: write
       id-token: write
       attestations: write
+      actions: read # SignPath reads this job's details and downloads its artifacts
+    env:
+      TARGET: ${{ matrix.target }}
+      BUNDLES: ${{ matrix.bundles }}
+      # Windows is signed through SignPath Foundation once the SIGNPATH_* settings exist
+      # (CONTRIBUTING.md → Windows code signing). Until then, and always on macOS, the build is
+      # unsigned, exactly as before.
+      SIGN_WITH_SIGNPATH: ${{ startsWith(matrix.os, 'windows') && vars.SIGNPATH_ORGANIZATION_ID != '' }}
     strategy:
       # Every platform finishes, so one run shows every problem. Nothing is published either
       # way: the release stays a draft until a maintainer publishes it.
@@ -91,16 +100,19 @@ jobs:
           - name: macos-universal
             os: macos-latest
             targets: aarch64-apple-darwin,x86_64-apple-darwin
-            args: --target universal-apple-darwin --bundles app,dmg
+            target: universal-apple-darwin
+            bundles: app,dmg
           - name: windows-x64
             os: windows-latest
             targets: x86_64-pc-windows-msvc
-            args: --target x86_64-pc-windows-msvc --bundles nsis,msi
+            target: x86_64-pc-windows-msvc
+            bundles: nsis,msi
           # MSI (WiX) can't target ARM64, so Windows on ARM gets the NSIS setup.exe only.
           - name: windows-arm64
             os: windows-latest
             targets: aarch64-pc-windows-msvc
-            args: --target aarch64-pc-windows-msvc --bundles nsis
+            target: aarch64-pc-windows-msvc
+            bundles: nsis
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -137,19 +149,116 @@ jobs:
             done
           fi
 
+      # Unsigned (macOS always; Windows until SignPath is set up): build, package and attach.
       - id: tauri
+        if: env.SIGN_WITH_SIGNPATH != 'true'
         uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
           releaseId: ${{ needs.draft.outputs.release-id }}
-          args: ${{ matrix.args }}
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+
+      # Signed Windows, in two rounds so the app inside the installer is signed too:
+      #   1. build ydcp.exe → SignPath signs it
+      #   2. package the signed exe into the installers → SignPath signs the installers
+      # --no-binary-patching keeps the exe exactly as signed (the patch only helps the updater
+      # plugin, which YDCP doesn't use). Every release needs an approver to approve both rounds
+      # for each Windows build in SignPath; the job waits up to 2 hours per round.
+      - name: Build the app (not packaged yet)
+        if: env.SIGN_WITH_SIGNPATH == 'true'
+        shell: bash
+        run: npx tauri build --target "$TARGET" --no-bundle
+
+      - id: upload-app
+        if: env.SIGN_WITH_SIGNPATH == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: unsigned-app-${{ matrix.name }}
+          path: src-tauri/target/${{ matrix.target }}/release/ydcp.exe
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Sign the app (SignPath)
+        if: env.SIGN_WITH_SIGNPATH == 'true'
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'ydcp' }}
+          # A test build ("Run workflow") uses SignPath's test certificate, which needs no approval.
+          signing-policy-slug: ${{ github.event_name == 'push' && 'release-signing' || 'test-signing' }}
+          artifact-configuration-slug: app
+          github-artifact-id: ${{ steps.upload-app.outputs.artifact-id }}
+          wait-for-completion-timeout-in-seconds: 7200
+          output-artifact-directory: signed-app
+
+      - name: Package the signed app into installers
+        if: env.SIGN_WITH_SIGNPATH == 'true'
+        shell: bash
+        run: |
+          cp signed-app/ydcp.exe "src-tauri/target/$TARGET/release/ydcp.exe"
+          npx tauri bundle --target "$TARGET" --bundles "$BUNDLES" --no-binary-patching
+          mkdir unsigned-installers
+          find "src-tauri/target/$TARGET/release/bundle" \( -name '*-setup.exe' -o -name '*.msi' \) -type f \
+            -exec cp {} unsigned-installers/ \;
+          ls unsigned-installers
+
+      - id: upload-installers
+        if: env.SIGN_WITH_SIGNPATH == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: unsigned-installers-${{ matrix.name }}
+          path: unsigned-installers/
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Sign the installers (SignPath)
+        if: env.SIGN_WITH_SIGNPATH == 'true'
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'ydcp' }}
+          signing-policy-slug: ${{ github.event_name == 'push' && 'release-signing' || 'test-signing' }}
+          artifact-configuration-slug: installers
+          github-artifact-id: ${{ steps.upload-installers.outputs.artifact-id }}
+          wait-for-completion-timeout-in-seconds: 7200
+          output-artifact-directory: signed-installers
+
+      # Replaces the unsigned installers in the bundle folder (so the provenance step below
+      # covers the signed files) and attaches them to the draft.
+      - id: signed
+        name: Attach the signed installers
+        if: env.SIGN_WITH_SIGNPATH == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ needs.draft.outputs.release-id }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          PATHS=()
+          for FILE in signed-installers/*; do
+            NAME=$(basename "$FILE")
+            DEST=$(find "src-tauri/target/$TARGET/release/bundle" -name "$NAME" -type f | head -n 1)
+            test -n "$DEST"
+            cp "$FILE" "$DEST"
+            PATHS+=("$DEST")
+            if [ "$EVENT" = push ]; then
+              curl -sSf -X POST \
+                -H "Authorization: Bearer $GH_TOKEN" \
+                -H "Content-Type: application/octet-stream" \
+                --data-binary "@$DEST" \
+                "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets?name=$NAME" > /dev/null
+            fi
+          done
+          echo "artifact-paths=$(node -e 'console.log(JSON.stringify(process.argv.slice(1)))' "${PATHS[@]}")" >> "$GITHUB_OUTPUT"
 
       - name: Checksums
         if: github.event_name == 'push'
         shell: bash
         env:
-          ARTIFACT_PATHS: ${{ steps.tauri.outputs.artifactPaths }}
+          ARTIFACT_PATHS: ${{ steps.tauri.outputs.artifactPaths || steps.signed.outputs.artifact-paths }}
           GH_TOKEN: ${{ github.token }}
           RELEASE_ID: ${{ needs.draft.outputs.release-id }}
         run: |

@@ -18,7 +18,7 @@ Not sure? **Settings → System → About → System type** shows "x64-based" or
 
 ## "Windows protected your PC"
 
-Early versions of YDCP aren't code-signed yet, so Microsoft SmartScreen doesn't recognise them. Click **More info → Run anyway**.
+Early versions of YDCP aren't code-signed yet, so Microsoft SmartScreen doesn't recognise them. Click **More info → Run anyway**. Signing is being set up: see the [code signing policy](code-signing.md).
 
 If your antivirus blocks the installer, try the `.msi` instead, or report it to your antivirus as a false positive. The code and the build are public, so you can check exactly what's inside.
 
