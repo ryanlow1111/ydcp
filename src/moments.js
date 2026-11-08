@@ -1,4 +1,5 @@
-// Built-in cute moments: short motions she does on her own, when poked, or from the menu.
+// Built-in cute moments: short motions she does when poked, from the menu, as a greeting, or
+// when an agent finishes (she doesn't play them on her own).
 // Written as code (no files needed), in VRM 1.0 space (see moves.js). Hands are placed relative
 // to her measured face and body (body.js), so they land right on a chibi or a tall figure, and
 // her whole body takes part: weight shifts, chest and head turn with the gesture.

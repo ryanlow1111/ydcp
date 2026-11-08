@@ -60,7 +60,8 @@ impl Default for MenuState {
             models: Vec::new(),
             model: None,
             catalogue: Catalogue::default(),
-            vibe: "auto".into(),
+            // Calm by default: she stays on Idle unless the menu picks another vibe.
+            vibe: "idle".into(),
             face: None,
             size: Size::Medium,
             on_top: true,

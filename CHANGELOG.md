@@ -9,6 +9,8 @@ All notable changes to YDCP are listed here. The format follows [Keep a Changelo
 - `npm run check:models -- <folder>`: the same report for a whole folder of models, for testing before a release.
 
 ### Changed
+- Calmer by default: she stays on her gentle Idle loop and no longer plays moments on her own. Click her, pick a moment from the menu, or let her greet you when you come back. Menu → Motions → Vibes → Auto (drift) brings back the livelier rhythm. She keeps talking now and then.
+- Clicking her no longer makes her hop; she looks surprised, then does a moment.
 - Menu → Motions → Expressions now lists what the loaded model really has, including its custom expressions. A model with no usable expressions says so.
 
 ## [0.1.0] - 2026-11-07

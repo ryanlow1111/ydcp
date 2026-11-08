@@ -174,7 +174,7 @@ She can **optionally** react to an AI coding agent, such as cheering when a task
 | `id` | Stable name, used by model profiles | file name |
 | `name` | Menu label | tidied file name |
 | `face` | Expression while playing | `happy` |
-| `line` | Said when she does it on her own or on a poke | none |
+| `line` | Said when she does it (a poke, the menu, the agent cheer) | none |
 | `random` | Joins her own and poke moments | `true` |
 | `onDone` | The cheer when an agent finishes | built-in Peace |
 | `loop` | Plays as a vibe loop | `false` |
@@ -227,7 +227,7 @@ She can **optionally** react to an AI coding agent, such as cheering when a task
 
 ### 6.6 Mood: standalone first, agent optional
 - **Standalone:**
-  - Vibes rotate every 20–40 s, moments every 18–40 s, musings every 14–30 s.
+  - Calm by default (changed after beta feedback: constant motion was distracting): she stays on Idle, and moments only play on a poke, from the menu, or as a greeting. Vibes → Auto (drift) rotates loops every 20–40 s. Musings every 70–160 s.
   - She gets sleepy after 10 minutes with no cursor movement and wakes when it moves or on a poke.
   - She greets you on launch and when she wakes.
 - **`agentLink`:**

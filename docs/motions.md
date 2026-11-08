@@ -4,8 +4,8 @@
 
 These need no files and work with any VRM model:
 
-- **Vibes** (looping): Idle, Sway, Bop, Sleepy
-- **Moments** (played once): Wave, Peace, Shy
+- **Vibes** (looping): Idle, Sway, Bop, Sleepy. She stays calm on **Idle** by default; **Menu → Motions → Vibes → Auto (drift)** lets her drift between them.
+- **Moments** (played once): Wave, Peace, Shy. They only play when asked: click her, pick one from the menu, or as her greeting when you come back.
 
 They're fitted to each model when it loads: YDCP measures her arms, shoulders and face, then places her hands for that body, so they land right on a chibi or a tall figure.
 
@@ -49,9 +49,9 @@ Optional. Keys are file names in the folder; every field is optional.
 | `id` | Stable name, used by model profiles' `motionFixes` | File name without `.vrma` |
 | `name` | Label in the Motions menu | Tidied file name |
 | `face` | Expression while it plays: `happy`, `angry`, `sad`, `surprised`, `relaxed`, `blink` | `happy` |
-| `line` | What she says when she does it by herself or when poked | None |
+| `line` | What she says when she does it (on a poke, from the menu, or as the agent cheer) | None |
 | `credit` | Credit line shown in **About…** (e.g. what the pack's terms ask for) | None |
-| `random` | Whether she picks it by herself and on a poke | `true` |
+| `random` | Whether a poke can pick it | `true` |
 | `onDone` | Use it to cheer when an AI agent finishes (one motion) | The built-in Peace |
 | `loop` | Play it as a looping vibe instead of once | `false` |
 | `trim` | `"crouch"` (skip an opening crouch), or `{ "start": 1.5, "end": 6 }` in seconds | None |

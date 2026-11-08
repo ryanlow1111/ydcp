@@ -1,6 +1,6 @@
 # YDCP: Your Desktop Companion Project
 
-**A free, open-source desktop companion for macOS and Windows.** Your own 3D character stands on your desktop: she vibes, bops along, waves, does a peace sign, reacts when you poke her, and gets sleepy when you're away.
+**A free, open-source desktop companion for macOS and Windows.** Your own 3D character stands calmly on your desktop, chats now and then, waves when you come back, reacts when you click her, and gets sleepy when you're away.
 
 <!-- TODO: demo GIF. Record it with your own VRoid model or a model whose terms allow sharing; never a model you can't redistribute. -->
 

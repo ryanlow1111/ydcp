@@ -1,6 +1,7 @@
-// The companion: draws a VRM model with three.js and keeps her alive — vibe loops that
-// cross-fade, cute moments (built in, or from .vrma files), a head that follows the cursor,
-// faces, blinks, and a little hop when poked.
+// The companion: draws a VRM model with three.js and keeps her alive, calmly: a gentle idle
+// loop, a head that follows the cursor, faces and blinks. Cute moments (built in, or from .vrma
+// files) only happen when asked: a click, the menu, a greeting, an agent finishing.
+// Vibes → Auto (drift) brings back the livelier rhythm for those who want it.
 // Everything here runs on the user's computer; nothing is fetched from the internet.
 
 import * as THREE from 'three'
@@ -22,8 +23,6 @@ const DEFAULT_FPS = 60
 const SLEEPY_FPS = 15
 /** Seconds a loop takes to cross-fade into the next. */
 const FADE = 0.6
-/** How long her little hop takes when poked, in seconds. */
-const POKE_HOP = 0.35
 /** The vibe loops you can pick (sleepy too); `auto` lets her drift between VIBES. */
 export const VIBE_CHOICES = ['idle', 'sway', 'bop', 'sleepy']
 /** Her resting smile. */
@@ -103,7 +102,8 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
   let oneOff = null
   let momentFace = null
   let heldFace = null
-  let vibeChoice = 'auto'
+  /** Her vibe: a calm idle unless the menu picks another loop, or 'auto' to drift between them. */
+  let vibeChoice = 'idle'
 
   /** Fits all of her in the window, feet near the bottom, room above her head for a bubble. */
   function frameBody() {
@@ -270,7 +270,6 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     setBase(vibeChoice === 'auto' || !loops[vibeChoice] ? 'sway' : vibeChoice)
     const t = timer.getElapsed()
     nextVibe = t + 20 + Math.random() * 15
-    nextMoment = t + 12 + Math.random() * 10
     // Draw her once right away and say so: the window starts hidden, and a hidden web view
     // doesn't run animation frames, so the loop below only takes over once she's shown.
     step(0, t)
@@ -307,7 +306,6 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
   // ---- What she does ----------------------------------------------------------------------
 
   let nextVibe = 0
-  let nextMoment = 0
   let lastMoment = null
   let pokedAt = -Infinity
   let asleep = false
@@ -335,7 +333,7 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     return true
   }
 
-  /** A random moment she'd do on her own, different from the last one. */
+  /** A random moment for a poke, different from the last one. */
   function randomMoment() {
     const choices = Object.keys(moments).filter(id => moments[id].random && id !== lastMoment)
     return choices[Math.floor(Math.random() * choices.length)] ?? null
@@ -364,7 +362,6 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
       setBase(vibeChoice === 'auto' || !loops[vibeChoice] ? 'sway' : vibeChoice)
       const t = timer.getElapsed()
       nextVibe = t + 20 + Math.random() * 15
-      nextMoment = Math.max(nextMoment, t + 8)
     }
   }
 
@@ -396,7 +393,7 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
   /** The model's blink, which every model's blinking and dozing use. */
   const blinkName = () => faceFor('blink')
 
-  /** A poke: she hops and looks surprised, then does a cute moment. */
+  /** A poke: a moment of surprise, then a cute moment. */
   function poke() {
     const t = timer.getElapsed()
     pokedAt = t
@@ -437,7 +434,6 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
   let modelFaces = []
   /** How strongly each of them shows right now, eased. */
   let faceWeights = {}
-  const size = new THREE.Vector3()
 
   /** The frame rate chosen in the menu. */
   let maxFps = DEFAULT_FPS
@@ -475,25 +471,18 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
 
   /** Moves her on by `dt` seconds (`t` = seconds since start) and draws the frame. */
   function step(dt, t) {
-    // Her own rhythm: drift to another vibe now and then, and do a cute moment.
+    // Vibes → Auto (drift) only: now and then she drifts to another loop. Otherwise she stays
+    // on her calm loop, and moments only come when asked (a poke, the menu, a greeting).
     if (vibeChoice === 'auto' && !asleep && !oneOff && t > nextVibe) {
       const others = VIBES.filter(name => loops[name] !== base)
       setBase(others[Math.floor(Math.random() * others.length)])
       nextVibe = t + 20 + Math.random() * 20
-    }
-    if (!asleep && !oneOff && t > nextMoment && base !== loops.sleepy) {
-      const id = randomMoment()
-      if (id) {
-        playMoment(id)
-      }
-      nextMoment = t + 18 + Math.random() * 22
     }
     if (t >= pokeMomentAt) {
       pokeMomentAt = Infinity
       const id = randomMoment()
       if (id) {
         playMoment(id)
-        nextMoment = Math.max(nextMoment, t + 12)
       }
     }
 
@@ -528,10 +517,8 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     }
     holder.rotation.y = Math.sin(t * 0.3) * 0.05
 
-    // A poke: a little hop and a moment of surprise.
+    // A poke: a moment of surprise on her face (no hop: she stays where she stands).
     const sincePoke = t - pokedAt
-    const hop = sincePoke < POKE_HOP ? Math.sin((Math.PI * sincePoke) / POKE_HOP) : 0
-    holder.position.y = hop * (body ? body.getSize(size).y : 1.5) * 0.03
 
     // Faces: a held face wins, then a surprised poke, then the moment's face, else a soft smile.
     const face = faceFor(heldFace ?? (sincePoke < 0.45 ? 'surprised' : momentFace))
