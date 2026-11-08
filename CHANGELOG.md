@@ -4,6 +4,10 @@ All notable changes to YDCP are listed here. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-08
+
+Calmer by default, outfits, reminders, any size, head pats, and Japanese and Chinese. macOS and Windows.
+
 ### Added
 - Models → About this model… says what the loaded model has and lacks, in plain words: faces, blinking, hair physics, finger and eye bones, size, and the licence in its file.
 - `npm run check:models -- <folder>`: the same report for a whole folder of models, for testing before a release.

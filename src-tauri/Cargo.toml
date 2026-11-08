@@ -1,6 +1,6 @@
 [package]
 name = "ydcp"
-version = "0.1.0"
+version = "0.1.1"
 description = "YDCP — Your Desktop Companion Project"
 authors = ["Ryan Low Jun Yen"]
 license = "MIT"
