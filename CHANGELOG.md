@@ -7,6 +7,7 @@ All notable changes to YDCP are listed here. The format follows [Keep a Changelo
 ### Added
 - Models → About this model… says what the loaded model has and lacks, in plain words: faces, blinking, hair physics, finger and eye bones, size, and the licence in its file.
 - `npm run check:models -- <folder>`: the same report for a whole folder of models, for testing before a release.
+- Menu → Outfit: for models whose expressions show or hide a hat, glasses, a tie and so on, YDCP lists those separately from her faces. Wear any number of them with any expression; each model remembers its outfit. A profile's `outfit` list can say exactly which expressions are outfit parts.
 
 ### Changed
 - Calmer by default: she stays on her gentle Idle loop and no longer plays moments on her own. Click her, pick a moment from the menu, or let her greet you when you come back. Menu → Motions → Vibes → Auto (drift) brings back the livelier rhythm. She keeps talking now and then.

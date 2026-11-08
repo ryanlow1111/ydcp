@@ -16,6 +16,7 @@ import {
   addModel,
   currentModel,
   frameRate,
+  savedOutfit,
   listAnims,
   modelsFolder,
   moveWindowTo,
@@ -275,6 +276,7 @@ async function loadModel(name) {
     pet.setFrameRate(await frameRate().catch(() => 60))
     canvas.hidden = false
     await pet.load(bytes, parseJson(profileText))
+    pet.setOutfit(await savedOutfit(name).catch(() => []))
     model = name
     closeCard(card)
     await setCatalogue(pet.catalogue())
@@ -326,6 +328,14 @@ async function start() {
         break
       case 'face':
         pet?.holdFace(id ?? null)
+        break
+      case 'outfit':
+        // The app has already saved the change and ticked the menu.
+        if (id) {
+          pet?.toggleOutfit(id)
+        } else {
+          pet?.setOutfit([])
+        }
         break
       case 'frameRate':
         pet?.setFrameRate(Number(id))

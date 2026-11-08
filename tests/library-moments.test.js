@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import * as THREE from 'three'
-import { faceList, modelProfile, motionEntries, parseJson, resolveFace, tidyName } from '../src/library.js'
+import { faceList, modelProfile, motionEntries, parseJson, resolveFace, sortExpressions, tidyName } from '../src/library.js'
 import { MOMENTS, MOMENT_IDS, makeMoments } from '../src/moments.js'
 import { defaultBody, solveArm, wristOf } from '../src/body.js'
 import { crouchEnd, trimClip } from '../src/fixes.js'
@@ -75,9 +75,67 @@ describe('expressions: the menu lists what the model really has', () => {
   })
 })
 
+describe('outfit parts: shown alongside a face, any number at once', () => {
+  const face = (name, extra = {}) => ({ name, binds: 1, targets: ['face'], ...extra })
+
+  test('the Lily case: parts the model marks on/off, on the same mesh as her face', () => {
+    const { faces, outfit } = sortExpressions([
+      face('aa'),
+      face('blink'),
+      face('happy01'),
+      face('sad01'),
+      face('sweat'),
+      face('hat01', { binary: true }),
+      face('hat02', { binary: true }),
+      face('FBI', { binary: true }),
+      face('Bow', { binary: true }),
+    ])
+    expect(outfit).toEqual(['Bow', 'FBI', 'hat01', 'hat02'])
+    expect(faces).toEqual(['happy01', 'sad01', 'sweat', 'blink'])
+  })
+
+  test('parts on their own mesh, or named like clothes, count too', () => {
+    const { faces, outfit } = sortExpressions([
+      face('blink'),
+      face('happy'),
+      face('Smile_A'),
+      face('Wings', { targets: ['wings mesh'] }),
+      face('Glasses_On'),
+      face('帽子'),
+      face('メガネ'),
+    ])
+    expect(outfit).toEqual(['Glasses_On', 'Wings', '帽子', 'メガネ'].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })))
+    expect(faces).toEqual(['happy', 'Smile_A', 'blink'])
+  })
+
+  test('faces stay faces, even when marked on/off or on their own mesh', () => {
+    const { faces, outfit } = sortExpressions([
+      face('blink', { binary: true }),
+      face('happy02', { binary: true }),
+      face('Blush', { targets: ['cheek mesh'] }),
+      face('Tears', { binary: true }),
+      face('汗'),
+    ])
+    expect(outfit).toEqual([])
+    expect(faces).toContain('Blush')
+  })
+
+  test('a model with only face expressions has no outfit', () => {
+    expect(sortExpressions([face('happy'), face('angry'), face('Wink')]).outfit).toEqual([])
+    expect(sortExpressions([]).outfit).toEqual([])
+  })
+
+  test('a profile’s list replaces the guesses', () => {
+    const expressions = [face('hat01', { binary: true }), face('Smile_A'), face('blink')]
+    expect(sortExpressions(expressions, ['smile_a']).outfit).toEqual(['Smile_A'])
+    expect(sortExpressions(expressions, []).outfit).toEqual([])
+    expect(sortExpressions(expressions, []).faces).toEqual(['hat01', 'Smile_A', 'blink'])
+  })
+})
+
 describe('model profiles', () => {
   test('defaults with no profile: no fixes, normal size', () => {
-    expect(modelProfile()).toEqual({ name: null, credit: null, scale: 1, faces: {}, motionFixes: {} })
+    expect(modelProfile()).toEqual({ name: null, credit: null, scale: 1, faces: {}, outfit: null, motionFixes: {} })
   })
 
   test('keeps valid settings, drops the rest', () => {

@@ -1,7 +1,8 @@
 //! The menu bar (macOS) / notification-area (Windows) menu, built from what YDCP knows now:
 //! the models in the models folder, the motions the front end reports, and the settings.
 //! Picking an item either acts here (size, always on top, show/hide, add files, quit) or is
-//! passed to the front end as a `menu` event (a moment, a vibe, a face, a model, About).
+//! passed to the front end as a `menu` event (a moment, a vibe, a face, an outfit part, a
+//! model, About).
 
 use std::sync::Mutex;
 
@@ -34,6 +35,31 @@ pub struct Catalogue {
     /// The face she's holding: a new model may not have the old one.
     #[serde(default)]
     pub face: Option<String>,
+    /// The model's outfit parts (a hat, glasses…), shown or hidden alongside any face.
+    #[serde(default)]
+    pub outfit: Vec<String>,
+    /// The outfit parts she's wearing now.
+    #[serde(default)]
+    pub wearing: Vec<String>,
+}
+
+impl Catalogue {
+    /// Shows or hides one outfit part (`None` takes them all off). Returns what she wears then,
+    /// or `None` if the model has no such part.
+    pub fn toggle_outfit(&mut self, part: Option<&str>) -> Option<Vec<String>> {
+        match part {
+            None => self.wearing.clear(),
+            Some(part) if !self.outfit.iter().any(|name| name == part) => return None,
+            Some(part) => {
+                if self.wearing.iter().any(|name| name == part) {
+                    self.wearing.retain(|name| name != part);
+                } else {
+                    self.wearing.push(part.to_string());
+                }
+            }
+        }
+        Some(self.wearing.clone())
+    }
 }
 
 /// Everything the menu shows.
@@ -87,6 +113,7 @@ pub enum Pick {
     Moment(String),
     Vibe(String),
     Face(Option<String>),
+    Outfit(Option<String>),
     AddMotions,
     ReloadMotions,
     Size(String),
@@ -111,6 +138,8 @@ impl Pick {
             "vibe" => Pick::Vibe(rest.to_string()),
             "face" if rest == "none" => Pick::Face(None),
             "face" => Pick::Face(Some(rest.to_string())),
+            "outfit" if rest == "none" => Pick::Outfit(None),
+            "outfit" => Pick::Outfit(Some(rest.to_string())),
             "add-motions" => Pick::AddMotions,
             "reload-motions" => Pick::ReloadMotions,
             "size" => Pick::Size(rest.to_string()),
@@ -248,6 +277,25 @@ pub fn build<R: Runtime, M: Manager<R>>(app: &M, state: &MenuState) -> tauri::Re
     motion_items.push(Box::new(item("reload-motions", "Reload motions")?));
     let motions = Submenu::with_items(app, "Motions", true, &refs(&motion_items))?;
 
+    // Outfit ▸ — only for a model with parts to show or hide; any number at once.
+    let mut outfit_items: Vec<Box<dyn IsMenuItem<R>>> = vec![
+        Box::new(check(
+            "outfit:none",
+            "Model's default",
+            state.catalogue.wearing.is_empty(),
+        )?),
+        Box::new(separator()?),
+    ];
+    for part in &state.catalogue.outfit {
+        let worn = state.catalogue.wearing.contains(part);
+        outfit_items.push(Box::new(check(
+            &format!("outfit:{part}"),
+            &capitalised(part),
+            worn,
+        )?));
+    }
+    let outfit = Submenu::with_items(app, "Outfit", true, &refs(&outfit_items))?;
+
     // Size ▸
     let mut size_items: Vec<Box<dyn IsMenuItem<R>>> = Vec::new();
     for size in Size::ALL {
@@ -307,24 +355,23 @@ pub fn build<R: Runtime, M: Manager<R>>(app: &M, state: &MenuState) -> tauri::Re
     let folder = item("open-folder", "Open pet folder")?;
     let about = item("about", "About YDCP…")?;
     let quit = item("quit", "Quit YDCP")?;
-    Menu::with_items(
-        app,
-        &[
-            &show,
-            &separator()?,
-            &models,
-            &motions,
-            &sizes,
-            &rates,
-            &on_top,
-            &agent,
-            &separator()?,
-            &folder,
-            &about,
-            &separator()?,
-            &quit,
-        ],
-    )
+    let separators = [separator()?, separator()?, separator()?];
+    let mut items: Vec<&dyn IsMenuItem<R>> = vec![&show, &separators[0], &models, &motions];
+    if !state.catalogue.outfit.is_empty() {
+        items.push(&outfit);
+    }
+    items.extend([
+        &sizes as &dyn IsMenuItem<R>,
+        &rates,
+        &on_top,
+        &agent,
+        &separators[1],
+        &folder,
+        &about,
+        &separators[2],
+        &quit,
+    ]);
+    Menu::with_items(app, &items)
 }
 
 fn refs<R: Runtime>(items: &[Box<dyn IsMenuItem<R>>]) -> Vec<&dyn IsMenuItem<R>> {
@@ -368,6 +415,11 @@ mod tests {
             Pick::parse("face:angry"),
             Some(Pick::Face(Some("angry".into())))
         );
+        assert_eq!(Pick::parse("outfit:none"), Some(Pick::Outfit(None)));
+        assert_eq!(
+            Pick::parse("outfit:hat01"),
+            Some(Pick::Outfit(Some("hat01".into())))
+        );
         assert_eq!(Pick::parse("size:large"), Some(Pick::Size("large".into())));
         assert_eq!(Pick::parse("agent:auto"), Some(Pick::Agent("auto".into())));
         assert_eq!(
@@ -375,6 +427,28 @@ mod tests {
             Some(Pick::FrameRate("30".into()))
         );
         assert_eq!(Pick::parse("nonsense"), None);
+    }
+
+    #[test]
+    fn outfit_parts_toggle_on_and_off() {
+        let mut catalogue = Catalogue {
+            outfit: vec!["hat01".into(), "tie".into()],
+            ..Catalogue::default()
+        };
+        assert_eq!(
+            catalogue.toggle_outfit(Some("hat01")),
+            Some(vec!["hat01".into()])
+        );
+        assert_eq!(
+            catalogue.toggle_outfit(Some("tie")),
+            Some(vec!["hat01".into(), "tie".into()])
+        );
+        assert_eq!(
+            catalogue.toggle_outfit(Some("hat01")),
+            Some(vec!["tie".into()])
+        );
+        assert_eq!(catalogue.toggle_outfit(Some("cape")), None);
+        assert_eq!(catalogue.toggle_outfit(None), Some(vec![]));
     }
 
     #[test]

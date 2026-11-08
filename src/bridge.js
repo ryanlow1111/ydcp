@@ -31,7 +31,10 @@ export const readMotions = () => invoke('read_motions')
 /** The chosen frame rate (60 or 30). */
 export const frameRate = () => invoke('frame_rate')
 
-/** Tells the menu which motions, vibes and faces she has. */
+/** The outfit parts last shown on model `model` (a hat, glasses…), saved by the menu. */
+export const savedOutfit = model => invoke('saved_outfit', { model })
+
+/** Tells the menu which motions, vibes, faces and outfit parts she has. */
 export const setCatalogue = catalogue => invoke('set_catalogue', { catalogue })
 
 /** Opens the "Add a model" file picker (the app copies the file in and switches to it). */
@@ -46,7 +49,7 @@ export const setClickThrough = on => invoke('set_click_through', { on })
 /** Calls `handler({ x, y, inside })` whenever the cursor moves, wherever it is on screen. */
 export const onCursor = handler => listen('cursor', event => handler(event.payload))
 
-/** Calls `handler({ kind, id })` when a menu item for her is picked (moment, vibe, face, model, about). */
+/** Calls `handler({ kind, id })` when a menu item for her is picked (moment, vibe, face, outfit, model, about). */
 export const onPick = handler => listen('pick', event => handler(event.payload))
 
 /** Calls `handler()` when the motions folder changed. */

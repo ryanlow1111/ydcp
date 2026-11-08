@@ -19,6 +19,64 @@ export function faceList(expressions) {
   return [...new Set(usable)].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
 }
 
+/** Words in an expression's name that mean it changes her face, never her outfit. */
+const FACE_WORDS = new Set(['smile', 'wink', 'blush', 'cheek', 'cheeks', 'tear', 'tears', 'cry', 'sweat', 'shy', 'joy', 'sorrow', 'fun', 'mouth', 'brow', 'eyebrow', 'tongue', 'teeth', 'pupil', 'highlight'])
+const FACE_SIGNS = ['汗', '涙', '泪', '頬', '照れ', '脸红', '笑', '怒', '泣', '眉', '舌']
+/** Words that mean it shows or hides something she wears (or a part like ears or a tail). */
+const OUTFIT_WORDS = new Set([
+  'hat', 'cap', 'beret', 'hood', 'helmet', 'crown', 'tiara', 'headband', 'headphone', 'headphones', 'headset',
+  'glass', 'glasses', 'megane', 'sunglass', 'sunglasses', 'goggle', 'goggles', 'mask', 'eyepatch',
+  'earring', 'earrings', 'piercing', 'ribbon', 'bow', 'tie', 'necktie', 'choker', 'necklace', 'collar', 'scarf', 'muffler',
+  'cape', 'cloak', 'coat', 'jacket', 'hoodie', 'vest', 'shirt', 'sweater', 'skirt', 'pants', 'shorts', 'dress', 'apron', 'uniform',
+  'outfit', 'cloth', 'clothes', 'costume', 'sock', 'socks', 'stocking', 'stockings', 'tights', 'shoe', 'shoes', 'boot', 'boots',
+  'glove', 'gloves', 'bag', 'belt', 'wing', 'wings', 'tail', 'halo', 'ear', 'ears', 'horn', 'horns', 'hair', 'hairpin', 'hairclip',
+  'accessory', 'accessories', 'acc', 'toggle', 'hide', 'hidden', 'show',
+])
+const OUTFIT_SIGNS = ['帽', '眼鏡', '眼镜', 'メガネ', 'めがね', 'リボン', 'ネクタイ', 'スカート', '服', '衣', '靴', '手袋', '尻尾', 'しっぽ', '羽', '髪飾', '发饰', 'アクセ', '耳', '表示', '隐藏', '隱藏', '显示', '上着', 'パーカー', 'マスク', 'ヘッドホン', '眼帯']
+
+/** "Hat_01", "hatOn" → ["hat", "on"]. */
+const wordsOf = name =>
+  name
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .toLowerCase()
+    .split(/[^a-z]+/)
+    .filter(Boolean)
+
+const STANDARD = new Set([...FACES, ...NOT_FACES].map(name => name.toLowerCase()))
+/** A standard expression, or a numbered one of them (happy01): always a face. */
+const isStandard = name => STANDARD.has(name.toLowerCase().replace(/[\s_-]*\d+$/, ''))
+
+/**
+ * Splits a model's expressions into faces (she shows one at a time) and outfit parts (shown or
+ * hidden, any number at once, alongside a face: a hat, glasses, a ribbon). `expressions` is
+ * [{ name, binds, binary, targets }], `targets` being ids of the meshes and materials it changes.
+ *
+ * An expression is an outfit part if it isn't a face by name and either the model marks it as
+ * on/off (binary), it changes only meshes and materials no standard face uses, or its name says
+ * so (hat, glasses, 帽子…). A profile's `outfit` list replaces these guesses.
+ */
+export function sortExpressions(expressions, outfitNames = null) {
+  const usable = expressions.filter(({ binds }) => binds > 0)
+  let isOutfit
+  if (Array.isArray(outfitNames)) {
+    const wanted = new Set(outfitNames.map(name => name.toLowerCase()))
+    isOutfit = ({ name }) => wanted.has(name.toLowerCase())
+  } else {
+    const faceTargets = new Set(usable.filter(({ name }) => isStandard(name)).flatMap(({ targets = [] }) => targets))
+    isOutfit = ({ name, binary, targets = [] }) => {
+      const words = wordsOf(name)
+      if (isStandard(name) || words.some(word => FACE_WORDS.has(word)) || FACE_SIGNS.some(sign => name.includes(sign))) {
+        return false
+      }
+      const elsewhere = faceTargets.size > 0 && targets.length > 0 && targets.every(target => !faceTargets.has(target))
+      const named = words.some(word => OUTFIT_WORDS.has(word)) || OUTFIT_SIGNS.some(sign => name.includes(sign))
+      return Boolean(binary) || elsewhere || named
+    }
+  }
+  const outfit = [...new Set(usable.filter(isOutfit).map(({ name }) => name))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+  return { faces: faceList(usable.filter(expression => !outfit.includes(expression.name))), outfit }
+}
+
 /**
  * The model's expression for a face: the profile's mapping if it has one, else the same name,
  * else the same name in other capitals (some models have a custom "Surprised"), else its first
@@ -121,6 +179,8 @@ export function modelProfile(settings = {}) {
     credit: isText(settings.credit) ? settings.credit.trim() : null,
     scale: Number.isFinite(settings.scale) && settings.scale > 0.2 && settings.scale < 5 ? settings.scale : 1,
     faces,
+    // null: YDCP works out which expressions are outfit parts; a list says exactly which.
+    outfit: Array.isArray(settings.outfit) ? settings.outfit.filter(isText) : null,
     motionFixes,
   }
 }

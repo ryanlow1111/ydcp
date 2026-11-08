@@ -15,7 +15,7 @@ const vrm0 = (groups, bones = FULL_BODY, spring = [{ bones: [1, 2] }]) => ({
     },
   },
 })
-const group = (name, presetName = 'unknown', binds = 1) => ({ name, presetName, binds: Array(binds).fill({}) })
+const group = (name, presetName = 'unknown', binds = 1, isBinary = false) => ({ name, presetName, isBinary, binds: Array(binds).fill({ mesh: 0 }) })
 const levels = notes => notes.map(note => note.level)
 const says = (notes, words) => notes.some(note => note.text.includes(words))
 
@@ -66,7 +66,7 @@ describe('reading a .vrm file', () => {
     expect(summary.version).toBe('1.0')
     expect(summary.author).toBe('A, B')
     expect(summary.bones).toEqual(['hips', 'head'])
-    expect(summary.expressions).toEqual([
+    expect(summary.expressions.map(({ name, binds }) => ({ name, binds }))).toEqual([
       { name: 'happy', binds: 1 },
       { name: 'angry', binds: 0 },
       { name: 'wink', binds: 1 },
@@ -105,6 +105,12 @@ describe('plain-language notes', () => {
     expect(says(notes, 'Not in this model: relaxed, surprised')).toBe(true)
     expect(says(notes, '5 custom expressions')).toBe(true)
     expect(levels(notes)).not.toContain('warn')
+  })
+
+  test('the Lily case: on/off parts are listed as her outfit, not her faces', () => {
+    const notes = notesFor([group('happy01'), group('sad01'), group('hat01', 'unknown', 1, true), group('tie', 'unknown', 1, true), group('Blink', 'blink')])
+    expect(says(notes, '2 outfit parts to show or hide, in the Outfit menu: hat01, tie')).toBe(true)
+    expect(says(notes, '2 custom expressions')).toBe(true)
   })
 
   test('only custom names that match nothing: says so', () => {

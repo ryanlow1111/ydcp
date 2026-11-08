@@ -218,6 +218,23 @@ fn on_pick<R: Runtime>(app: &AppHandle<R>, pick: Pick) {
             menu::refresh(app);
             let _ = app.emit_to("main", "pick", pick);
         }
+        Pick::Outfit(ref part) => {
+            let changed = app
+                .state::<SharedMenu>()
+                .0
+                .lock()
+                .ok()
+                .and_then(|mut state| {
+                    let wearing = state.catalogue.toggle_outfit(part.as_deref())?;
+                    Some((state.model.clone()?, wearing))
+                });
+            let Some((model, wearing)) = changed else {
+                return;
+            };
+            save_setting(app, |settings| settings.set_outfit(&model, &wearing));
+            menu::refresh(app);
+            let _ = app.emit_to("main", "pick", pick);
+        }
         Pick::Moment(_) | Pick::About | Pick::AboutModel => {
             let _ = app.emit_to("main", "pick", pick);
         }
@@ -326,7 +343,15 @@ fn frame_rate<R: Runtime>(app: AppHandle<R>) -> u32 {
         .map_or(settings::DEFAULT_FRAME_RATE, |state| state.frame_rate)
 }
 
-/// The front end tells the menu which motions, vibes and faces it has.
+/// The outfit parts last shown on `model`.
+#[tauri::command]
+fn saved_outfit<R: Runtime>(app: AppHandle<R>, model: String) -> Vec<String> {
+    settings_path(&app)
+        .map(|path| settings::load(&path).outfit(&model))
+        .unwrap_or_default()
+}
+
+/// The front end tells the menu which motions, vibes, faces and outfit parts it has.
 #[tauri::command]
 fn set_catalogue<R: Runtime>(app: AppHandle<R>, catalogue: Catalogue) {
     if let Ok(mut state) = app.state::<SharedMenu>().0.lock() {
@@ -361,6 +386,7 @@ pub fn run() {
             set_click_through,
             current_model,
             frame_rate,
+            saved_outfit,
             set_catalogue,
             add_model
         ])

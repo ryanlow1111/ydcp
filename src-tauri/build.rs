@@ -13,6 +13,7 @@ fn main() {
             "set_click_through",
             "current_model",
             "frame_rate",
+            "saved_outfit",
             "set_catalogue",
             "add_model",
         ]),

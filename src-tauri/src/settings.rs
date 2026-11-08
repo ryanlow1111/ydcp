@@ -1,7 +1,8 @@
 //! `~/.ydcp/settings.json`: small things YDCP remembers between launches — where she stands,
-//! which model, her size, always-on-top. Unknown fields are kept as they are, so newer
+//! which model, her size, always-on-top, each model's outfit. Unknown fields are kept as they are, so newer
 //! versions' settings survive.
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 use std::sync::Mutex;
@@ -87,9 +88,28 @@ pub struct Settings {
     pub agent_link: Option<AgentLink>,
     #[serde(default, rename = "frameRate", skip_serializing_if = "Option::is_none")]
     pub frame_rate: Option<u32>,
+    /// The outfit parts shown on each model (by file name), e.g. `"lily.vrm": ["hat01"]`.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub outfits: BTreeMap<String, Vec<String>>,
     /// Everything else in the file, kept untouched.
     #[serde(flatten)]
     pub other: Map<String, Value>,
+}
+
+impl Settings {
+    /// The outfit parts last shown on `model`.
+    pub fn outfit(&self, model: &str) -> Vec<String> {
+        self.outfits.get(model).cloned().unwrap_or_default()
+    }
+
+    /// Remembers the outfit parts shown on `model`; none forgets the model's entry.
+    pub fn set_outfit(&mut self, model: &str, parts: &[String]) {
+        if parts.is_empty() {
+            self.outfits.remove(model);
+        } else {
+            self.outfits.insert(model.to_string(), parts.to_vec());
+        }
+    }
 }
 
 /// The settings in `path`; defaults if the file is missing or unreadable.
@@ -225,6 +245,25 @@ mod tests {
         assert_eq!(end.position, Some(Position { x: 199, y: 0 }));
         assert_eq!(end.always_on_top, Some(false));
         assert_eq!(end.model.as_deref(), Some("a.vrm"));
+    }
+
+    #[test]
+    fn remembers_each_models_outfit() {
+        let path = temp_file("outfits");
+        let hat = vec!["hat01".to_string(), "tie".to_string()];
+        update(&path, |settings| settings.set_outfit("lily.vrm", &hat)).unwrap();
+        update(&path, |settings| {
+            settings.set_outfit("other.vrm", &["glass".into()])
+        })
+        .unwrap();
+        let saved = load(&path);
+        assert_eq!(saved.outfit("lily.vrm"), hat);
+        assert_eq!(saved.outfit("nobody.vrm"), Vec::<String>::new());
+        update(&path, |settings| settings.set_outfit("lily.vrm", &[])).unwrap();
+        assert!(!load(&path).outfits.contains_key("lily.vrm"));
+        update(&path, |settings| settings.set_outfit("other.vrm", &[])).unwrap();
+        assert!(!fs::read_to_string(&path).unwrap().contains("outfits"));
+        let _ = fs::remove_file(path);
     }
 
     #[test]

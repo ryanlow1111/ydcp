@@ -2,7 +2,7 @@
 // size and licence. Shared by the app (Models → About this model…) and the folder checker
 // (npm run check:models), so they always agree. Plain data only: no drawing, no file access.
 
-import { faceList, resolveFace } from './library.js'
+import { resolveFace, sortExpressions } from './library.js'
 
 const GLB_MAGIC = 0x46546c67 // "glTF"
 const JSON_CHUNK = 0x4e4f534a // "JSON"
@@ -58,7 +58,11 @@ export function summarize(json, bytes = 0) {
     for (const group of [vrm1.expressions?.preset, vrm1.expressions?.custom]) {
       for (const [name, expression] of Object.entries(group ?? {})) {
         const binds = count(expression.morphTargetBinds) + count(expression.materialColorBinds) + count(expression.textureTransformBinds)
-        summary.expressions.push({ name, binds })
+        const targets = [
+          ...(expression.morphTargetBinds ?? []).map(bind => `mesh:${json.nodes?.[bind.node]?.mesh ?? `node${bind.node}`}`),
+          ...[...(expression.materialColorBinds ?? []), ...(expression.textureTransformBinds ?? [])].map(bind => `material:${bind.material}`),
+        ]
+        summary.expressions.push({ name, binds, binary: Boolean(expression.isBinary), targets })
       }
     }
     summary.springs = (json.extensions?.VRMC_springBone?.springs ?? []).reduce((sum, spring) => sum + count(spring.joints), 0)
@@ -74,6 +78,8 @@ export function summarize(json, bytes = 0) {
       summary.expressions.push({
         name: VRM0_PRESETS[preset] ?? group.name,
         binds: count(group.binds) + count(group.materialValues),
+        binary: Boolean(group.isBinary),
+        targets: [...(group.binds ?? []).map(bind => `mesh:${bind.mesh}`), ...(group.materialValues ?? []).map(value => `material:${value.materialName}`)],
       })
     }
     summary.springs = (vrm0.secondaryAnimation?.boneGroups ?? []).reduce((sum, group) => sum + count(group.bones), 0)
@@ -123,7 +129,7 @@ export function modelNotes(summary) {
     add('bad', `Missing body bones (${listOf(missing)}), so built-in motions can’t pose her properly.`)
   }
 
-  const faces = faceList(summary.expressions)
+  const { faces, outfit } = sortExpressions(summary.expressions)
   const custom = faces.filter(name => name !== 'blink' && !STANDARD_FACES.includes(name))
   const found = STANDARD_FACES.filter(face => resolveFace(face, faces))
   if (faces.filter(name => name !== 'blink').length === 0) {
@@ -138,6 +144,9 @@ export function modelNotes(summary) {
   }
   if (custom.length > 0) {
     add('info', `${custom.length} custom expression${custom.length === 1 ? '' : 's'} in Motions → Expressions: ${listOf(custom)}.`)
+  }
+  if (outfit.length > 0) {
+    add('info', `${outfit.length} outfit part${outfit.length === 1 ? '' : 's'} to show or hide, in the Outfit menu: ${listOf(outfit)}.`)
   }
   if (!resolveFace('blink', faces)) {
     add('warn', 'No blink, so she won’t blink.')

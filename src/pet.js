@@ -12,7 +12,7 @@ import { defaultBody, measureBody } from './body.js'
 import { makeLoops, VIBES } from './moves.js'
 import { MOMENTS, MOMENT_IDS, makeMoments } from './moments.js'
 import { applyTrim, clearArms } from './fixes.js'
-import { faceList, modelProfile, resolveFace } from './library.js'
+import { modelProfile, resolveFace, sortExpressions } from './library.js'
 
 /**
  * At most this many frames a second: smooth on 60 Hz screens, and capped on 120 Hz ones to
@@ -379,13 +379,49 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     heldFace = modelFaces.includes(name) ? name : null
   }
 
-  /** The model's faces, read fresh for each model; anything from the last model is forgotten. */
+  /**
+   * The model's faces and outfit parts, read fresh for each model; anything from the last model
+   * is forgotten (main.js puts back the outfit saved for this model).
+   */
   function readFaces() {
     const expressions = vrm.expressionManager?.expressions ?? []
-    modelFaces = faceList(expressions.map(expression => ({ name: expression.expressionName, binds: expression.binds.length })))
+    const sorted = sortExpressions(
+      expressions.map(expression => ({
+        name: expression.expressionName,
+        binds: expression.binds.length,
+        binary: expression.isBinary,
+        targets: expression.binds.flatMap(bind => [...(bind.primitives ?? []).map(mesh => mesh.uuid), ...(bind.material ? [bind.material.uuid] : [])]),
+      })),
+      profile.outfit,
+    )
+    modelFaces = sorted.faces
+    modelOutfit = sorted.outfit
+    wearing = new Set()
     faceWeights = Object.fromEntries(modelFaces.filter(name => name !== blinkName()).map(name => [name, 0]))
+    for (const expression of expressions) {
+      // A hat or glasses mustn't stop her blinking or talking, as a face expression may.
+      if (modelOutfit.includes(expression.expressionName)) {
+        expression.overrideBlink = 'none'
+        expression.overrideLookAt = 'none'
+        expression.overrideMouth = 'none'
+      }
+    }
     if (!modelFaces.includes(heldFace)) {
       heldFace = null
+    }
+  }
+
+  /** Shows exactly these outfit parts (any the model doesn't have are ignored). */
+  function setOutfit(names) {
+    wearing = new Set(names.filter(name => modelOutfit.includes(name)))
+  }
+
+  /** Shows or hides one outfit part. */
+  function toggleOutfit(name) {
+    if (wearing.has(name)) {
+      wearing.delete(name)
+    } else if (modelOutfit.includes(name)) {
+      wearing.add(name)
     }
   }
 
@@ -415,6 +451,8 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
       vibe: vibeChoice,
       face: heldFace,
       faces: modelFaces,
+      outfit: modelOutfit,
+      wearing: modelOutfit.filter(name => wearing.has(name)),
     }
   }
 
@@ -434,6 +472,9 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
   let modelFaces = []
   /** How strongly each of them shows right now, eased. */
   let faceWeights = {}
+  /** The model's outfit parts (a hat, glasses…), and the ones she's wearing now. */
+  let modelOutfit = []
+  let wearing = new Set()
 
   /** The frame rate chosen in the menu. */
   let maxFps = DEFAULT_FPS
@@ -538,6 +579,9 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
       if (blinkFace) {
         em.setValue(blinkFace, (face && face === blinkFace) || base === loops.sleepy || t < blinkEnd ? 1 : 0)
       }
+      for (const name of modelOutfit) {
+        em.setValue(name, wearing.has(name) ? 1 : 0)
+      }
     }
 
     vrm.update(dt)
@@ -559,6 +603,8 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     setAsleep,
     cheer,
     holdFace,
+    setOutfit,
+    toggleOutfit,
     poke,
     lookAt,
     catalogue,

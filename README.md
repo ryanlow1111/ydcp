@@ -140,6 +140,7 @@ Put a JSON file next to the model with the same name, for example `models/my-mod
 ```
 
 - `faces`: maps YDCP's faces (`happy`, `angry`, `sad`, `surprised`, `relaxed`, `blink`) to your model's expression names, if it uses custom ones.
+- `outfit`: the expressions that show or hide a part of her outfit (a hat, glasses), if YDCP sorts them wrong. See [docs/models.md](docs/models.md#outfit-parts).
 - `scale`: makes her bigger or smaller (1.0 = auto fit).
 - `motionFixes`: moves the arms during a motion, for models whose big heads or long hair hide their hands. See [docs/models.md](docs/models.md).
 - Every field is optional. With no profile, everything uses sensible defaults.
@@ -169,6 +170,7 @@ YDCP only reads your model from your own computer. It never uploads, shares or m
 | Click the app behind her | Just click; empty space is click-through |
 | Change size | Menu → **Size** → Small / Medium / Large |
 | Pick a motion | Menu → **Motions** → a moment, a vibe, or an expression |
+| Put on a hat, glasses… | Menu → **Outfit** (only for models that have outfit parts; any number at once, with any expression) |
 | Change model | Menu → **Models** |
 | Keep or stop always-on-top | Menu → **Always on top** |
 | Save power on a laptop | Menu → **Frame rate** → 30 fps |

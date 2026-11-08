@@ -27,6 +27,7 @@ A JSON file with the same name as the model, next to it: `my-model.vrm` + `my-mo
   "credit": "Model by Someone",
   "scale": 1.0,
   "faces": { "angry": "Angry_Custom" },
+  "outfit": ["hat01", "Glasses"],
   "motionFixes": {
     "greeting": { "clearArms": { "lift": 0.7, "forward": 0.3 } },
     "peace": { "clearArms": { "pose": { "upper": [-0.8, 0, 0.8], "lower": [0, 1.8, 0] } } }
@@ -39,6 +40,7 @@ A JSON file with the same name as the model, next to it: `my-model.vrm` + `my-mo
 | `name` | Name in the Models menu and About… | The VRM's title, else the file name |
 | `credit` | Credit line in About… | The VRM's author |
 | `scale` | Extra size (1.0 = automatic fit) | `1.0` |
+| `outfit` | Exactly which expressions are [outfit parts](#outfit-parts). `[]` means none | Worked out by YDCP |
 | `faces` | Maps YDCP faces (`happy`, `angry`, `sad`, `surprised`, `relaxed`, `blink`) to your model's expression names | Standard VRM expression names |
 | `motionFixes` | Arm adjustments per motion `id`, for models whose head, hair or sleeves hide their hands | None: motions play exactly as made |
 
@@ -53,9 +55,21 @@ Some motions bring the hands up to the face. On a model with a big head or long 
 | `straighten` | Opens the elbow, so a hand folded across the face swings out beside it |
 | `pose` | Instead of turning the arm, blends it to a fixed pose: `upper` and `lower` arm Euler angles `[x, y, z]`. Example: `upper [-0.8, 0, 0.8]`, `lower [0, 1.8, 0]` holds the hand beside the cheek |
 
-**Expressions:** **Menu → Motions → Expressions** lists the expressions the loaded model really has, custom ones included. If a standard face isn't there, she just keeps her usual look for that moment; a `faces` mapping can point it at one of the model's custom expressions.
+**Expressions:** **Menu → Motions → Expressions** lists the expressions the loaded model really has, custom ones included (outfit parts are in their own menu, see [Outfit parts](#outfit-parts)). If a standard face isn't there, she just keeps her usual look for that moment; a `faces` mapping can point it at one of the model's custom expressions.
 
 **Tuning tip:** start with no fix, look at the motion, then try small values (0.2–0.4) and grow from there.
+
+## Outfit parts
+
+Some models use expressions to show or hide parts of the outfit: a hat, glasses, a tie, a skirt. YDCP lists those in **Menu → Outfit**, separate from her faces, so she can wear any number of them with any expression (for example a hat and glasses with a happy face). YDCP remembers each model's outfit.
+
+YDCP decides an expression is an outfit part when its name doesn't say it's a face (happy, blink, blush, tears…) and at least one of these is true:
+
+- the model marks it as on/off ("Is Binary" in UniVRM, VRoid or Blender);
+- it changes only meshes or materials that none of the standard faces use, such as a separate hat mesh;
+- its name says so: hat, glasses, ribbon, tie, skirt, wings, 帽子, メガネ and similar.
+
+**Models → About this model…** lists what it found. If it's wrong, list the outfit parts in the profile's `outfit` field; that list replaces YDCP's guesses. What an outfit part does when ticked depends on the model: on some, ticking it shows the item; on others it hides it.
 
 ## Licences
 
