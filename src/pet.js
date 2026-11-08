@@ -328,8 +328,10 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
         get name() {
           return text(`moment.${id}`)
         },
+        // Her line for this moment, or one of the user's own lines for it (docs/lines.md).
         get line() {
-          return text(`moment.${id}.line`)
+          const options = lines(`moment.${id}.line`)
+          return options[Math.floor(Math.random() * options.length)] ?? null
         },
         random: true,
         action: mixer.clipAction(clip),

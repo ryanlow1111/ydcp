@@ -176,6 +176,7 @@ YDCP only reads your model from your own computer. It never uploads, shares or m
 | Timer | Menu → **Reminders → Timer** → 5–60 minutes; she waves and tells you when time's up |
 | Start with your computer | Menu → **Start at login** (Mac: move YDCP to Applications first) |
 | Change language | Menu → **Language** → English, 日本語, 简体中文 or 繁體中文. **Automatic** follows your system |
+| Change what she says | Add your own lines, or replace hers, for every model (`~/.ydcp/lines.json`) or one character (her profile). See [docs/lines.md](docs/lines.md) |
 | Pick a motion | Menu → **Motions** → a moment, a vibe, or an expression |
 | Put on a hat, glasses… | Menu → **Outfit** (only for models that have outfit parts; any number at once, with any expression) |
 | Change model | Menu → **Models** |
@@ -265,6 +266,7 @@ Everything YDCP uses is in one folder: `~/.ydcp/` (Windows: `%USERPROFILE%\.ydcp
 .ydcp/
 ├── models/        your .vrm files (+ optional profiles)
 ├── anims/         your .vrma files (+ optional motions.json)
+├── lines.json     optional: your own lines for her (docs/lines.md)
 ├── settings.json  your choices: model, size, position, outfits, reminders, agent link
 └── state.json     only if an AI agent or script writes it
 ```

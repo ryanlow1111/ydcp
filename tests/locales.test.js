@@ -1,7 +1,8 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
-import { TABLES, listOf, setLanguage, t } from '../src/i18n.js'
+import { TABLES, lines, listOf, setCustomLines, setLanguage, t } from '../src/i18n.js'
+import { customLines } from '../src/library.js'
 
 const root = join(import.meta.dirname, '..')
 const en = TABLES.en
@@ -55,6 +56,23 @@ describe('every key the app uses exists', () => {
     }
     for (const minutes of [30, 60, 90, 120]) {
       expect(en[`reminder.span.${minutes}`]).toBeTypeOf('string')
+    }
+  })
+})
+
+describe('the user’s own lines', () => {
+  test('mix with hers in whatever language she speaks, moments included', () => {
+    try {
+      setCustomLines([customLines({ wave: ['Yo!'], cheer: ['Yatta!'] })])
+      setLanguage('ja')
+      expect(lines('moment.wave.line')).toEqual(['やっほー 👋', 'Yo!'])
+      expect(lines('lines.cheer')).toContain('Yatta!')
+      expect(lines('lines.cheer')).toContain('完了！おつかれさま〜')
+      setCustomLines([customLines({ mode: 'replace', wave: ['Yo!'] })])
+      expect(lines('moment.wave.line')).toEqual(['Yo!'])
+    } finally {
+      setCustomLines([])
+      setLanguage('en')
     }
   })
 })

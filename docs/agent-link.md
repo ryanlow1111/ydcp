@@ -26,11 +26,12 @@ The smallest valid file:
 
 | Field | Values | Effect |
 |---|---|---|
-| `mood` (required) | `done` | She cheers (the motion marked `onDone` in `motions.json`, else the built-in Peace), waking up first if she was asleep |
-| | `working`, `failed` | She wakes up if she was asleep, then keeps vibing |
+| `mood` (required) | `done` | She cheers (the motion marked `onDone` in `motions.json`, else the built-in Peace), waking up first if she was asleep. Without a `line`, she picks one of her cheers |
+| | `working` | She wakes up if she was asleep, then keeps vibing |
+| | `failed` | She wakes up if she was asleep and, without a `line`, says something encouraging |
 | | `idle` | Nothing (just its `line`, if any) |
 | | `sleepy` | She dozes off |
-| `line` | Any short text (up to 140 characters) | She says it in her bubble |
+| `line` | Any short text (up to 140 characters) | She says it in her bubble. To change her own cheers and encouragements instead, see [lines.md](lines.md) |
 | `at` | Milliseconds since 1970 | When it was written. Optional; YDCP also uses the file's change time |
 
 - Unknown fields are ignored, so tools can add their own.

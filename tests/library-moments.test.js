@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { TABLES } from '../src/i18n.js'
 import * as THREE from 'three'
-import { faceList, isTrackingShape, modelProfile, motionEntries, parseJson, resolveFace, sortExpressions, tidyName } from '../src/library.js'
+import { customLines, faceList, isTrackingShape, layeredLines, modelProfile, motionEntries, parseJson, resolveFace, sortExpressions, tidyName } from '../src/library.js'
 import { MOMENTS, MOMENT_IDS, makeMoments } from '../src/moments.js'
 import { defaultBody, solveArm, wristOf } from '../src/body.js'
 import { crouchEnd, trimClip } from '../src/fixes.js'
@@ -161,9 +161,40 @@ describe('outfit parts: shown alongside a face, any number at once', () => {
   })
 })
 
+describe('her lines, customised (lines.json and model profiles)', () => {
+  test('known categories only, text only, trimmed and cut to her bubble', () => {
+    const long = 'あ'.repeat(200)
+    const block = customLines({ greetings: ['  Hi!  ', '', 3, long], musings: 'Just one', nonsense: ['x'], mode: 'whatever' })
+    expect(block.mode).toBe('add')
+    expect(block.lists.greetings).toEqual(['Hi!', 'あ'.repeat(140)])
+    expect(block.lists.musings).toEqual(['Just one'])
+    expect(block.lists.nonsense).toBeUndefined()
+  })
+
+  test('nothing usable is no customisation at all', () => {
+    for (const nothing of [null, undefined, 'hi', [], {}, { nonsense: ['x'] }]) {
+      expect(customLines(nothing), JSON.stringify(nothing)).toBeNull()
+    }
+  })
+
+  test('add mixes in, replace swaps; the profile goes on top of the shared file', () => {
+    const hers = ['Hi hi~']
+    const shared = customLines({ greetings: ['Hello!'] })
+    const profile = customLines({ mode: 'replace', greetings: ['Hmph. Fine.'], pat: [] })
+    expect(layeredLines(hers, [shared], 'greetings')).toEqual(['Hi hi~', 'Hello!'])
+    expect(layeredLines(hers, [shared, profile], 'greetings')).toEqual(['Hmph. Fine.'])
+    expect(layeredLines(['Ehehe…'], [shared, profile], 'pat')).toEqual([])
+    expect(layeredLines(hers, [shared, null, profile], 'musings')).toEqual(hers)
+  })
+
+  test('a model profile can carry lines', () => {
+    expect(modelProfile({ lines: { cheer: ['Yatta!'] } }).lines).toEqual({ mode: 'add', lists: { cheer: ['Yatta!'] } })
+  })
+})
+
 describe('model profiles', () => {
   test('defaults with no profile: no fixes, normal size', () => {
-    expect(modelProfile()).toEqual({ name: null, credit: null, scale: 1, faces: {}, outfit: null, motionFixes: {} })
+    expect(modelProfile()).toEqual({ name: null, credit: null, scale: 1, faces: {}, outfit: null, lines: null, motionFixes: {} })
   })
 
   test('keeps valid settings, drops the rest', () => {

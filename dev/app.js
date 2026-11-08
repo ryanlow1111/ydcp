@@ -55,6 +55,11 @@ const commands = {
     throw new Error('no motions in the dev page')
   },
   read_motions: () => null,
+  read_lines: async () => {
+    const response = await fetch('./models/lines.json')
+    const text = response.ok ? await response.text() : null
+    return text?.trim().startsWith('{') ? text : null
+  },
   frame_rate: () => 60,
   app_language: () => params.get('lang') ?? 'en',
   pet_scale: () => 1,

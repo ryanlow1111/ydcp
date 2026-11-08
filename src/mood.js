@@ -96,14 +96,17 @@ export function createMood({ now, random = Math.random, hourAt = time => new Dat
           lastTimeLineHour = hour
           return [{ do: 'say', line: special }]
         }
-        return [{ do: 'say', line: pick('lines.musings', random) }]
+        // The user may have silenced her musings (an empty list in their lines.json).
+        const musing = pick('lines.musings', random)
+        return musing ? [{ do: 'say', line: musing }] : []
       }
       return []
     },
 
     /**
      * The agent link reported `{ mood, line }` (only arrives while it's on). `done` cheers;
-     * `sleepy` dozes off; anything else wakes her if asleep and passes on its line, if any.
+     * `sleepy` dozes off; anything else wakes her if asleep and passes on its line, if any
+     * (`failed` without one gets an encouraging line of her own).
      */
     agent({ mood, line }, time) {
       if (mood === 'done') {
@@ -125,8 +128,10 @@ export function createMood({ now, random = Math.random, hourAt = time => new Dat
         lastActivity = time
         actions.push({ do: 'wake', line: null })
       }
-      if (line) {
-        actions.push({ do: 'say', line })
+      // A failure gets a gentle word even when the agent sends none.
+      const said = line ?? (mood === 'failed' ? pick('lines.failed', random) : null)
+      if (said) {
+        actions.push({ do: 'say', line: said })
       }
       return actions
     },

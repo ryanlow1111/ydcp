@@ -1,4 +1,6 @@
 import { describe, expect, test } from 'vitest'
+import { setCustomLines } from '../src/i18n.js'
+import { customLines } from '../src/library.js'
 import { MUSE_MAX_MS, SLEEP_AFTER_MS, createMood, timeOfDayLine } from '../src/mood.js'
 
 const kinds = actions => actions.map(action => action.do)
@@ -70,5 +72,25 @@ describe('agent link (only reaches the mood while it is on)', () => {
     expect(kinds(mood.agent({ mood: 'working' }, 2))).toEqual(['wake'])
     expect(mood.agent({ mood: 'idle' }, 3)).toEqual([])
     expect(mood.agent({ mood: 'idle', line: 'Hi!' }, 4)).toEqual([{ do: 'say', line: 'Hi!' }])
+  })
+
+  test('failed: an encouraging line of her own, unless the agent sent one', () => {
+    const mood = make()
+    mood.start(0)
+    expect(mood.agent({ mood: 'failed' }, 1)).toEqual([{ do: 'say', line: 'Hmm… something went wrong? You’ve got this!' }])
+    expect(mood.agent({ mood: 'failed', line: 'Tests failed (3)' }, 2)).toEqual([{ do: 'say', line: 'Tests failed (3)' }])
+  })
+})
+
+describe('her own lines, as the user wants them', () => {
+  test('replaced greetings are what she says; an empty list silences musings', () => {
+    try {
+      setCustomLines([customLines({ mode: 'replace', greetings: ['Ohayo, master~'], musings: [] })])
+      const mood = make()
+      expect(mood.start(0)).toEqual([{ do: 'greet', line: 'Ohayo, master~' }])
+      expect(mood.tick(MUSE_MAX_MS + 1)).toEqual([])
+    } finally {
+      setCustomLines([])
+    }
   })
 })

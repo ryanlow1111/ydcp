@@ -17,6 +17,7 @@
     "allow-list-anims",
     "allow-read-anim",
     "allow-read-motions",
+    "allow-read-lines",
     "allow-set-click-through",
     "allow-current-model",
     "allow-frame-rate",

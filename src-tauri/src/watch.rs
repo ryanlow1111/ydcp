@@ -1,7 +1,8 @@
-//! Notices files added, changed or removed in the models and motions folders (checked every
-//! 2 seconds, by name, size and change time), so the menu and the front end stay current
-//! without a restart; and, only while the agent link is on, an agent's `state.json` (checked
-//! twice a second). No OS file-watching API, no extra permissions.
+//! Notices files added, changed or removed in the models and motions folders, and changes to
+//! the user's `lines.json` (checked every 2 seconds, by name, size and change time), so the
+//! menu and the front end stay current without a restart; and, only while the agent link is
+//! on, an agent's `state.json` (checked twice a second). No OS file-watching API, no extra
+//! permissions.
 
 use std::path::Path;
 use std::thread;
@@ -67,6 +68,10 @@ pub fn start<R: Runtime>(app: AppHandle<R>) {
         let state_file = assets::data_dir(&app)
             .ok()
             .map(|dir| dir.join("state.json"));
+        let lines_file = assets::data_dir(&app)
+            .ok()
+            .map(|dir| dir.join("lines.json"));
+        let mut lines_seen = lines_file.as_deref().and_then(agent::signature);
         let mut models_seen = models_dir.as_deref().map(assets::folder_signature);
         let mut anims_seen = anims_dir.as_deref().map(assets::folder_signature);
         let mut agent_watch = AgentWatch::default();
@@ -87,6 +92,15 @@ pub fn start<R: Runtime>(app: AppHandle<R>) {
                         current_model_changed(&app, models_seen.as_deref(), now.as_deref());
                     models_seen = now;
                     models_changed(&app, current_changed);
+                    // A model's profile may have new lines for her.
+                    let _ = app.emit_to("main", "lines", ());
+                }
+            }
+            if let Some(path) = lines_file.as_deref() {
+                let now = agent::signature(path);
+                if now != lines_seen {
+                    lines_seen = now;
+                    let _ = app.emit_to("main", "lines", ());
                 }
             }
             if let Some(dir) = anims_dir.as_deref() {

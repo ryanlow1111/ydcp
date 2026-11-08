@@ -9,8 +9,8 @@ import { getVersion } from '@tauri-apps/api/app'
 import { createPet, parseMotion } from './pet.js'
 import { createHitTest } from './hit.js'
 import { wireGestures } from './gestures.js'
-import { setLanguage, t, translatePage } from './i18n.js'
-import { isStandard, motionEntries, parseJson } from './library.js'
+import { setCustomLines, setLanguage, t, translatePage } from './i18n.js'
+import { customLines, isStandard, modelProfile, motionEntries, parseJson } from './library.js'
 import { inspectModel, modelNotes } from './modelinfo.js'
 import { createMood } from './mood.js'
 import { createReminders, span } from './reminders.js'
@@ -31,9 +31,11 @@ import {
   onAgent,
   onCursor,
   onLibraryChange,
+  onLinesChange,
   onPick,
   onProblem,
   readAnim,
+  readLines,
   readModel,
   readMotions,
   readProfile,
@@ -424,6 +426,8 @@ async function loadModel(name) {
   }
   try {
     const [bytes, profileText] = await Promise.all([readModel(name), readProfile(name).catch(() => null)])
+    profileLines = modelProfile(parseJson(profileText)).lines
+    applyLines()
     // A file we can't read this way still goes to the loader, which gives the real error.
     try {
       modelReport = inspectModel(bytes)
@@ -446,6 +450,23 @@ async function loadModel(name) {
     console.error(`[ydcp] ${error?.stack ?? error}`)
     await showWelcome(t('page.couldntLoad', { name, error: error?.message ?? error }))
   }
+}
+
+// ---- Her lines: hers, plus the user's own (docs/lines.md) ---------------------------------------
+
+/** The user's own lines: shared (~/.ydcp/lines.json), and the current model's profile. */
+let sharedLines = null
+let profileLines = null
+
+const applyLines = () => setCustomLines([sharedLines, profileLines])
+
+/** (Re)reads lines.json and the current model's profile lines. Broken files are skipped. */
+async function loadLines() {
+  sharedLines = customLines(parseJson(await readLines().catch(() => null))?.lines)
+  if (model) {
+    profileLines = modelProfile(parseJson(await readProfile(model).catch(() => null))).lines
+  }
+  applyLines()
 }
 
 /** (Re)loads the motions folder: every .vrma, with motions.json's settings. */
@@ -549,11 +570,13 @@ async function start() {
     }
   })
   await onLibraryChange(() => loadLibrary())
+  await onLinesChange(() => loadLines())
   await onProblem(message => say(`⚠️ ${message}`, { talk: false }))
   await onAgent(state => act(mood.agent(state, Date.now())))
 
   applyLanguage(await appLanguage().catch(() => 'en'))
   reminders.setBreakEvery(await breakEvery().catch(() => 0), Date.now())
+  await loadLines()
   await loadLibrary()
   await loadModel(await currentModel().catch(() => null))
 }

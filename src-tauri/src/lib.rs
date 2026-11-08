@@ -637,6 +637,7 @@ pub fn run() {
             assets::list_anims,
             assets::read_anim,
             assets::read_motions,
+            assets::read_lines,
             set_click_through,
             current_model,
             frame_rate,

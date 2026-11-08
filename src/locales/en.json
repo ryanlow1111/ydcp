@@ -105,7 +105,22 @@
   "lines.greetings": ["Hi hi~ I’ll keep you company ♪", "Hello again~ 👋", "Hehe~ I’m here!"],
   "lines.wake": ["Mm? Oh! Welcome back~", "Ah—you’re back! ✨", "*stretches* …hi again~"],
   "lines.sleep": ["*yawn*… just resting my eyes…", "Zzz… 💤", "Mm… five more minutes…"],
-  "lines.cheer": ["Yay! All done~ ✨", "You did it! Hehe~", "Finished! Good job~"],
+  "lines.cheer": [
+    "Yay! All done~ ✨",
+    "You did it! Hehe~",
+    "Finished! Good job~",
+    "Done and done! ♪",
+    "Ta-da! That’s finished~",
+    "All wrapped up! 🎀",
+    "Nice work, as always~",
+    "Finished! Time for a little stretch?"
+  ],
+  "lines.failed": [
+    "Hmm… something went wrong? You’ve got this!",
+    "Oops… let’s take another look together~",
+    "Not quite yet… deep breath, try again?",
+    "Aww, a little hiccup. I believe in you!"
+  ],
   "lines.musings": [
     "♪ la la la~",
     "Hmm hm hmm ♪",

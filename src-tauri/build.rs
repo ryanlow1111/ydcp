@@ -10,6 +10,7 @@ fn main() {
             "list_anims",
             "read_anim",
             "read_motions",
+            "read_lines",
             "set_click_through",
             "current_model",
             "frame_rate",

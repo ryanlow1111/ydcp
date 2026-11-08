@@ -4,6 +4,13 @@ All notable changes to YDCP are listed here. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+### Added
+- Your own lines for her: add to or replace her greetings, musings, pat lines, cheers and more, for every model (`~/.ydcp/lines.json`) or one character (a `lines` block in her profile). Changes are picked up without a restart. See [docs/lines.md](docs/lines.md).
+- She says something encouraging when the agent link reports `failed` without a line of its own.
+
+### Changed
+- More cheer lines (eight instead of three, in every language), so agent cheers repeat less.
+
 ## [0.1.1] - 2026-11-08
 
 Calmer by default, outfits, reminders, any size, head pats, and Japanese and Chinese. macOS and Windows.

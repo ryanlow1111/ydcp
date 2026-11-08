@@ -31,6 +31,12 @@ export const readMotions = () => invoke('read_motions')
 /** The chosen frame rate (60 or 30). */
 export const frameRate = () => invoke('frame_rate')
 
+/** The user's own lines, `~/.ydcp/lines.json`, as text or null. */
+export const readLines = () => invoke('read_lines')
+
+/** Calls `handler()` when lines.json or a model's profile changed. */
+export const onLinesChange = handler => listen('lines', () => handler())
+
 /** The language in use: 'en', 'ja', 'zh-Hans' or 'zh-Hant' (the system's, or Menu → Language). */
 export const appLanguage = () => invoke('app_language')
 

@@ -186,6 +186,63 @@ export function motionEntries(fileNames, settings = {}) {
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
+/** What users can give her their own lines for: each category and her built-in list for it. */
+export const LINE_CATEGORIES = {
+  greetings: 'lines.greetings',
+  wake: 'lines.wake',
+  sleep: 'lines.sleep',
+  musings: 'lines.musings',
+  cheer: 'lines.cheer',
+  failed: 'lines.failed',
+  pat: 'lines.pat',
+  wave: 'moment.wave.line',
+  peace: 'moment.peace.line',
+  shy: 'moment.shy.line',
+}
+/** Lines longer than this are cut (her bubble is small); lists are kept to a sensible size. */
+export const MAX_LINE_LENGTH = 140
+const MAX_LINES = 50
+
+/**
+ * A `lines` block (from ~/.ydcp/lines.json or a model profile), checked: { mode, lists } with
+ * `mode` 'add' (mixed in with her own lines, the default) or 'replace' (only these), and `lists`
+ * by category. Unknown categories and anything that isn't text are skipped. A category set to
+ * an empty list with mode 'replace' silences it (no musings, for example). Null if there's
+ * nothing usable.
+ */
+export function customLines(block) {
+  if (!block || typeof block !== 'object' || Array.isArray(block)) {
+    return null
+  }
+  const lists = {}
+  for (const category of Object.keys(LINE_CATEGORIES)) {
+    const given = block[category]
+    const list = typeof given === 'string' ? [given] : given
+    if (Array.isArray(list)) {
+      lists[category] = list
+        .filter(isText)
+        .map(line => [...line.trim()].slice(0, MAX_LINE_LENGTH).join(''))
+        .slice(0, MAX_LINES)
+    }
+  }
+  if (Object.keys(lists).length === 0) {
+    return null
+  }
+  return { mode: block.mode === 'replace' ? 'replace' : 'add', lists }
+}
+
+/** Her lines for one category after each layer of custom lines (shared file, then profile). */
+export function layeredLines(builtIn, layers, category) {
+  let list = builtIn
+  for (const layer of layers) {
+    const own = layer?.lists[category]
+    if (own) {
+      list = layer.mode === 'replace' ? own : [...list, ...own]
+    }
+  }
+  return list
+}
+
 /** A model profile's settings, checked, with defaults. */
 export function modelProfile(settings = {}) {
   const faces = {}
@@ -211,6 +268,8 @@ export function modelProfile(settings = {}) {
     faces,
     // null: YDCP works out which expressions are outfit parts; a list says exactly which.
     outfit: Array.isArray(settings.outfit) ? settings.outfit.filter(isText) : null,
+    // Her own lines for this character, layered over the shared ~/.ydcp/lines.json.
+    lines: customLines(settings.lines),
     motionFixes,
   }
 }

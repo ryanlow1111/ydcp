@@ -267,6 +267,12 @@ pub fn read_motions<R: Runtime>(app: AppHandle<R>) -> Result<Option<String>, Str
     read_settings_file(&anims_dir(&app)?, "motions.json")
 }
 
+/// The user's own lines for her, `~/.ydcp/lines.json`, as text or null (it's optional).
+#[tauri::command]
+pub fn read_lines<R: Runtime>(app: AppHandle<R>) -> Result<Option<String>, String> {
+    read_settings_file(&data_dir(&app)?, "lines.json")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
