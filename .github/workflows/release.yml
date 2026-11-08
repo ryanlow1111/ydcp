@@ -56,6 +56,23 @@ jobs:
           echo "release-id=$ID" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      # The agent-link hook scripts, so people who installed the app (and never cloned the repo)
+      # can download them from the release, with a checksum like the installers have.
+      - name: Attach the agent-link hook scripts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ steps.create.outputs.release-id }}
+        run: |
+          cd integrations/claude-code-hooks
+          sha256sum ydcp-state.sh ydcp-state.ps1 > SHA256SUMS-hooks.txt
+          for FILE in ydcp-state.sh ydcp-state.ps1 SHA256SUMS-hooks.txt; do
+            curl -sSf -X POST \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Content-Type: text/plain" \
+              --data-binary "@$FILE" \
+              "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets?name=$FILE" > /dev/null
+          done
+
   build:
     name: Build (${{ matrix.name }})
     needs: draft

@@ -17,12 +17,16 @@ All notable changes to YDCP are listed here. The format follows [Keep a Changelo
 - Menu → Start at login (off by default). On a Mac, YDCP must be in Applications first.
 - Open a `.vrm` with YDCP (double-click, or Open With): it's copied into the models folder, unless it's there already, and she switches to it.
 - Japanese, Simplified Chinese and Traditional Chinese: the menu, cards, model notes and everything she says. YDCP follows the system language; Menu → Language picks one. Translations are in `src/locales/`, and fixes are welcome.
+- The agent-link hook scripts (`ydcp-state.sh`, `ydcp-state.ps1`) are attached to every release, with checksums, so app users can set up the Claude Code hooks without the source code. The setup guide now covers downloading them, adding hooks to a settings file that already has other settings, and starting a new session.
 - Face-tracking shapes (perfect sync: the 52 ARKit shapes, VSeeFace's extra mouth shapes and brows) stay out of the menus, so perfect-sync models no longer list dozens of meaningless "expressions".
 
 ### Changed
 - Calmer by default: she stays on her gentle Idle loop and no longer plays moments on her own. Click her, pick a moment from the menu, or let her greet you when you come back. Menu → Motions → Vibes → Auto (drift) brings back the livelier rhythm. She keeps talking now and then.
 - Clicking her no longer makes her hop; she looks surprised, then does a moment.
 - Menu → Motions → Expressions now lists what the loaded model really has, including its custom expressions. A model with no usable expressions says so.
+
+### Fixed
+- Windows: the documented Claude Code hook command used `%USERPROFILE%`, which Git Bash and PowerShell don't expand, so the hook couldn't find its script. It now lets PowerShell find the script in your home folder.
 
 ## [0.1.0] - 2026-11-07
 

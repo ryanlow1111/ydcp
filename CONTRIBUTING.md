@@ -83,6 +83,6 @@ macOS and Windows are always released together from one tag.
 1. Set the new version in `package.json` **and** `src-tauri/Cargo.toml`. `tauri.conf.json` reads it from `package.json`, and `npm run check:version` catches mismatches.
 2. Move the **Unreleased** notes in `CHANGELOG.md` under a new `## [X.Y.Z] - YYYY-MM-DD` heading.
 3. Commit, then tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z`.
-4. The **Release** workflow builds macOS (universal) and Windows (x64, ARM64) into **one draft release** with `SHA256SUMS-*.txt` files. If any build fails, nothing is published.
+4. The **Release** workflow builds macOS (universal) and Windows (x64, ARM64) into **one draft release** with `SHA256SUMS-*.txt` files, plus the agent-link hook scripts (`ydcp-state.sh`, `ydcp-state.ps1`) that the Claude Code hooks guide downloads. If any build fails, nothing is published.
 5. Download the draft's files, install them on macOS and Windows, and run through the manual checklist in [docs/PLAN.md §11](docs/PLAN.md#11-testing).
 6. Press **Publish**. For a test build, either tick **Set as a pre-release** when publishing, or use a numeric pre-release version such as `0.1.0-1`, which is marked as a pre-release automatically. Names like `0.1.0-beta.1` don't work: Windows MSI installers only accept numeric pre-releases, and `npm run check:version` rejects them.

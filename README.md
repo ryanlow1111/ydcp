@@ -226,7 +226,7 @@ It's **off** when you install YDCP. To turn it on, open Menu → **React to agen
 - **Auto**: reacts only while the file exists.
 
 Ready-made examples are in [`integrations/`](integrations/):
-- **Claude Code hooks** (macOS shell and Windows PowerShell): `integrations/claude-code-hooks/`
+- **Claude Code hooks:** she wakes when you send a message and cheers when Claude finishes. Follow the [step-by-step guide](integrations/claude-code-hooks/README.md) (about five minutes). The hook scripts are attached to every [release](https://github.com/ryanlow1111/ydcp/releases/latest), so you don't need to download the source code.
 - **Claude desktop mod:** `integrations/claude-desktop-mod/`
 - **Any script**, for example when a long build finishes:
   - macOS: `printf '{"mood":"done"}' > ~/.ydcp/state.json`
