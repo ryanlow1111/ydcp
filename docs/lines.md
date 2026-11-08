@@ -71,6 +71,7 @@ Each is a list of lines; she picks one at random each time. A single line in quo
 
 - Your lines are shown exactly as you write them, in any language and whatever YDCP's language is set to. Her own lines follow Menu → Language.
 - Lines longer than 140 characters are cut; her bubble is small. Up to 50 lines per name.
-- If a file has a mistake (a missing comma, for example), YDCP ignores that file and she keeps her own lines. Paste it into any JSON checker to find the problem.
+- If a file has a mistake (most often a comma after the last line in a list), YDCP ignores that file and she keeps her own lines. See [Editing the JSON files](../README.md#editing-the-json-files) for the common mistakes and how to check a file.
+- Added lines are mixed in with hers, so with `"add"` one new line among her eight cheers comes up about 1 time in 9. Use `"replace"` if you always want yours.
 - Lines for your own motions (`.vrma`) go in `motions.json` instead: see [motions.md](motions.md). Lines from an AI agent or a script go in `state.json`: see [agent-link.md](agent-link.md).
 - Like everything else in YDCP, these files never leave your computer.

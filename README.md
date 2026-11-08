@@ -253,6 +253,8 @@ Ready-made examples are in [`integrations/`](integrations/):
 | Clicks don't reach the app behind her | Click a bit further from her; the area right around her body counts as her |
 | She's off-screen after unplugging a monitor | Relaunch YDCP; she moves back to the main screen |
 | A `.vrma` motion doesn't show up | Check that it ends in `.vrma` and isn't `"hidden": true` in `motions.json`; then Menu → **Motions → Reload** |
+| My lines, profile or `motions.json` change nothing | There's probably a typo in the file, often a comma after the last item. See [Editing the JSON files](#editing-the-json-files) |
+| My line shows up only sometimes | Your lines are added to hers, and she picks one at random. Add `"mode": "replace"` to use only yours. See [docs/lines.md](docs/lines.md) |
 
 Still stuck? [Open an issue](../../issues/new/choose). Tell us your OS, YDCP version, where the model came from and which step failed. **Please don't attach model files.**
 
@@ -270,6 +272,20 @@ Everything YDCP uses is in one folder: `~/.ydcp/` (Windows: `%USERPROFILE%\.ydcp
 ├── settings.json  your choices: model, size, position, outfits, reminders, agent link
 └── state.json     only if an AI agent or script writes it
 ```
+
+### Editing the JSON files
+
+The `.json` files above are plain text files that you can open in any text editor (TextEdit on Mac in plain-text mode, Notepad on Windows). The format is strict: **if one character is wrong, YDCP ignores the whole file** and goes back to its defaults, without telling you. The usual mistakes:
+
+| Wrong | Right | Why |
+|---|---|---|
+| `["Hi!", "Hello!",]` | `["Hi!", "Hello!"]` | No comma after the **last** item in a list `[ ]` or a group `{ }` |
+| `"greetings": ["Hi!"] "pat": ["Nyaa~"]` | `"greetings": ["Hi!"], "pat": ["Nyaa~"]` | A comma **between** items |
+| `“greetings”` or `'greetings'` | `"greetings"` | Straight double quotes only. TextEdit and Word turn them into curly quotes, so turn off smart quotes or use a code editor |
+| `"I said "hi""` | `"I said \"hi\""` | A `"` inside a line needs a `\` before it |
+| `// my lines` | (remove it) | No comments |
+
+**Check before you save:** paste the whole file into a JSON checker such as [jsonlint.com](https://jsonlint.com). It points to the line with the mistake. A free code editor such as [VS Code](https://code.visualstudio.com) also underlines mistakes as you type.
 
 **Uninstall:**
 - If you turned on **Start at login**, turn it off first (or delete `~/Library/LaunchAgents/YDCP.plist` on Mac).
