@@ -7,7 +7,7 @@ import { createPet, parseMotion } from '../src/pet.js'
 import { motionEntries, parseJson } from '../src/library.js'
 
 const params = new URLSearchParams(location.search)
-const modelName = params.get('model') ?? 'mw-miku'
+const modelName = params.get('model') ?? 'vrm1-sample'
 // ?raf=timer keeps her animating in a hidden tab (browsers pause animation frames there).
 if (params.get('raf') === 'timer') {
   window.requestAnimationFrame = callback => setTimeout(() => callback(performance.now()), 16)

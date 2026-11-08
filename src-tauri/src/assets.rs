@@ -279,7 +279,7 @@ mod tests {
 
     #[test]
     fn plain_names_pass() {
-        assert!(is_plain_name("miku.vrm", ".vrm"));
+        assert!(is_plain_name("aiko.vrm", ".vrm"));
         assert!(is_plain_name("My Model (v2).VRM", ".vrm"));
         assert!(is_plain_name("可愛い.vrm", ".vrm"));
     }
@@ -314,7 +314,7 @@ mod tests {
 
     #[test]
     fn picked_files_get_safe_names() {
-        assert_eq!(safe_name("Miku.vrm", ".vrm").as_deref(), Some("Miku.vrm"));
+        assert_eq!(safe_name("Aiko.vrm", ".vrm").as_deref(), Some("Aiko.vrm"));
         assert_eq!(safe_name("a:b*c.vrm", ".vrm").as_deref(), Some("a_b_c.vrm"));
         assert_eq!(
             safe_name(".hidden.vrm", ".vrm").as_deref(),
@@ -328,10 +328,10 @@ mod tests {
     fn copies_in_without_overwriting() {
         let source_dir = temp_folder("copy-src");
         let dir = temp_folder("copy-dst");
-        let source = source_dir.join("Miku.vrm");
+        let source = source_dir.join("Aiko.vrm");
         fs::write(&source, b"model").unwrap();
-        assert_eq!(copy_in(&source, &dir, ".vrm", 100).unwrap(), "Miku.vrm");
-        assert_eq!(copy_in(&source, &dir, ".vrm", 100).unwrap(), "Miku (2).vrm");
+        assert_eq!(copy_in(&source, &dir, ".vrm", 100).unwrap(), "Aiko.vrm");
+        assert_eq!(copy_in(&source, &dir, ".vrm", 100).unwrap(), "Aiko (2).vrm");
         assert!(
             copy_in(&source, &dir, ".vrm", 2)
                 .unwrap_err()

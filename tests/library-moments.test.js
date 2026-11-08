@@ -199,12 +199,12 @@ describe('model profiles', () => {
 
   test('keeps valid settings, drops the rest', () => {
     const profile = modelProfile({
-      name: 'Miku',
+      name: 'Aiko',
       scale: 99,
       faces: { angry: 'Angry_Custom', nonsense: 'x', happy: '' },
       motionFixes: { peace: { clearArms: { lift: 0.4 } }, bad: { other: 1 } },
     })
-    expect(profile.name).toBe('Miku')
+    expect(profile.name).toBe('Aiko')
     expect(profile.scale).toBe(1)
     expect(profile.faces).toEqual({ angry: 'Angry_Custom' })
     expect(Object.keys(profile.motionFixes)).toEqual(['peace'])

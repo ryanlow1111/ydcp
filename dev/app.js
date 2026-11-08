@@ -7,7 +7,7 @@
 // __app.emit('agent', { mood: 'done' }), __app.settings, __app.catalogue
 
 const params = new URLSearchParams(location.search)
-const modelName = `${params.get('model') ?? 'mw-miku'}.vrm`
+const modelName = `${params.get('model') ?? 'vrm1-sample'}.vrm`
 
 // The page itself: index.html's body, so this never drifts from the app.
 const page = new DOMParser().parseFromString(await fetch('/index.html').then(r => r.text()), 'text/html')

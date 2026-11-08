@@ -53,7 +53,7 @@ She can **optionally** react to an AI coding agent, such as cheering when a task
 | App icon, tray icon, UI art | ✅ | MIT or CC0 | Original |
 | Default VRM model | ❌ **decided: none** | — | Users bring their own model (VRoid Studio, VRoid Hub, BOOTH, or a converted VRChat avatar whose terms allow it). See the README |
 | VRoid VRMA_MotionPack (BOOTH 5512385) | ❌ | Free, **no redistribution** | Users download from BOOTH; we ship a `motions.json` preset for those files (the preset is our text, not their files) |
-| MW Miku and other BOOTH models | ❌ | Per model | Users add their own; never in the repo, screenshots or GIFs unless the model's terms allow |
+| BOOTH models | ❌ | Per model | Users add their own; never in the repo, screenshots or GIFs unless the model's terms allow |
 | README screenshots and GIFs | ✅ | — | Only with a CC0 model or your own VRoid model |
 
 `.gitignore` blocks `*.vrm` and `*.vrma` everywhere. No model or motion file is ever committed.
@@ -243,7 +243,7 @@ She can **optionally** react to an AI coding agent, such as cheering when a task
 ### 6.7 Performance
 - **Frame rate:** 60 fps by default, with a menu option for 30; 15 fps while she dozes. `setPixelRatio(min(dpr, 2))`. A frame is only requested when one is due: requesting every display refresh and skipping kept WebKit's display timer running, which cost about 10% of a core with nothing drawn.
 - **Pausing:** she isn't drawn while hidden.
-- **Measured** (release build, M1, Medium window, MW Miku, % of one CPU core, app plus its WebKit processes): window not shown 0, 15 fps (the dozing rate, measured with a build flag) about 9, 30 fps about 22, 60 fps about 30.
+- **Measured** (release build, M1, Medium window, a VRM 0.x test model, % of one CPU core, app plus its WebKit processes): window not shown 0, 15 fps (the dozing rate, measured with a build flag) about 9, 30 fps about 22, 60 fps about 30.
 - **Original target missed:** the plan's "under about 3%" isn't reachable while she animates. Turning off hair physics or antialiasing changed almost nothing (about 29% either way), so the cost is WebKit presenting each frame, not her model. Revisit if it matters: a native renderer would be a much larger project.
 - **Still unmeasured:** memory after 10 model switches, Large size, Windows.
 
@@ -521,4 +521,4 @@ The prototype lives in the Claude desktop dev-mods folder (`clawd-pet/`, private
   - The page title and credit line (moved to About…).
   - The `state.json` polling (replaced by the file watch).
 - **`hooks/register.ts`:** moves to `integrations/claude-desktop-mod/`. It writes `~/.ydcp/state.json`, drops the local `python3 http.server` and `/clawd` pane opening, and adds the disclaimer.
-- **Never moved into the public repo:** MW Miku, the VRoid `.vrma` files, the Clawd model and conversion scripts.
+- **Never moved into the public repo:** private test models, the VRoid `.vrma` files, the Clawd model and conversion scripts.
