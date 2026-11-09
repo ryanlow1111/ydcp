@@ -167,13 +167,29 @@ export function armsDown(body, t = 0) {
   )
 }
 
-/** Hands held together in front of her, resting on her skirt or lower belly. */
+/**
+ * Hands held together in front of her, resting relaxed on her skirt or lower belly. The wrists
+ * aren't turned: each hand hangs on from its forearm, her right resting just in front of her left
+ * so the two never pass through each other. The wrists sit about a third of her own hand's length
+ * apart (so small and large hands both fit), the right hand a hand's thickness further out.
+ */
 export function armsClasped(body, lift = 0) {
+  const hand = body.hand ?? body.height * 0.065
   return armsTo(
     body,
-    side => [sideSign(side) * body.height * 0.012, body.hipsY + body.height * 0.015 + lift, body.frontZ + body.height * (side === 'right' ? 0.024 : 0.016)],
+    side => [
+      sideSign(side) * hand * 0.3,
+      body.hipsY + body.height * 0.015 + lift,
+      body.frontZ + body.height * (side === 'right' ? 0.05 : 0.012),
+    ],
     side => [sideSign(side) * 0.8, -0.3, -0.5],
   )
+}
+
+/** Fingers for the clasp: the right hand's, in front, curl gently over the left; the left's a little more. */
+export const CLASPED_HANDS = {
+  ...curledFingers({ index: 0.12, middle: 0.16, ring: 0.2, little: 0.24, thumb: 0.1 }),
+  ...leftOf(curledFingers({ index: 0.3, middle: 0.38, ring: 0.45, little: 0.5 })),
 }
 
 /** The vibe loops: idle, sway, bop and sleepy, each `LOOP` seconds long, fitted to `body`. */
@@ -188,7 +204,7 @@ export function makeLoops(vrm, vrm0 = false, body = defaultBody()) {
 
   // Sway: hands together, rocking side to side, head tilting the other way with each rock.
   const sway = clip('sway', t => ({
-    ...combine(breathing(t), stance(0.5), clasped, RELAXED_HANDS),
+    ...combine(breathing(t), stance(0.5), clasped, CLASPED_HANDS),
     hips: [0, wave(t, 6, 0.25) * 0.05, -wave(t, 3) * 0.06],
     spine: [wave(t, 1.5) * 0.01, 0, wave(t, 3) * 0.05],
     chest: [0, 0, wave(t, 3) * 0.03],
@@ -214,7 +230,7 @@ export function makeLoops(vrm, vrm0 = false, body = defaultBody()) {
   const bop = clip('bop', t => {
     const g = groove(t)
     return {
-      ...combine(breathing(t), armsClasped(body, -pulse(t - 0.05) * body.height * 0.004 * g), RELAXED_HANDS),
+      ...combine(breathing(t), armsClasped(body, -pulse(t - 0.05) * body.height * 0.004 * g), CLASPED_HANDS),
       hips: [0, wave(t, 8) * 0.03, -wave(t, BAR) * 0.035 * g],
       spine: [pulse(t) * 0.015 * g, 0, wave(t, BAR, 0.05) * 0.025 * g],
       chest: [pulse(t - 0.03) * 0.025 * g, wave(t, 8, 0.3) * 0.025, wave(t, BAR, 0.1) * 0.015 * g],
@@ -229,7 +245,7 @@ export function makeLoops(vrm, vrm0 = false, body = defaultBody()) {
 
   // Sleepy: drooping, head tipped to one side, slow breaths.
   const sleepy = clip('sleepy', t => ({
-    ...combine(breathing(t, 0.1), stance(0.5), clasped, RELAXED_HANDS),
+    ...combine(breathing(t, 0.1), stance(0.5), clasped, CLASPED_HANDS),
     spine: [0.06 + wave(t, 6) * 0.035, 0, 0],
     head: [0.35 + wave(t, 6, 0.1) * 0.04, 0, -0.28],
   }))

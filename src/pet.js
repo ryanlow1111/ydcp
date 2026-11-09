@@ -588,8 +588,11 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
 
   /** The frame rate chosen in the menu. */
   let maxFps = DEFAULT_FPS
-  /** The frame rate she needs right now: slow while she dozes, unless a moment is playing. */
-  const fpsNow = () => ((asleep || base === loops.sleepy) && !oneOff ? Math.min(SLEEPY_FPS, maxFps) : maxFps)
+  /**
+   * The frame rate she needs right now: slow only while she dozes because you're away, unless a
+   * moment is playing. Picking the Sleepy vibe yourself keeps the full rate: you're watching her.
+   */
+  const fpsNow = () => (asleep && !oneOff ? Math.min(SLEEPY_FPS, maxFps) : maxFps)
 
   /**
    * Asks for the next frame only when one is due. Asking every display refresh and then

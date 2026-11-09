@@ -13,6 +13,8 @@ export function defaultBody() {
     height: 1.5,
     upperArm: 0.24,
     lowerArm: 0.22,
+    /** Wrist to fingertip. */
+    hand: 0.1,
     shoulder: { right: [-0.13, 1.17, 0], left: [0.13, 1.17, 0] },
     hipsY: 0.8,
     face: { eyeY: 1.36, halfWidth: 0.08, height: 0.2, front: 0.09 },
@@ -60,6 +62,9 @@ export function measureBody(vrm) {
   const upperArm = rightShoulder.distanceTo(elbow)
   const lowerArm = elbow.distanceTo(wrist)
   const handY = rightShoulder.y - (upperArm + lowerArm) * 0.95
+  // Wrist to fingertip: to the middle finger's last joint, plus a bit for the tip.
+  const fingerJoint = raw('rightMiddleDistal') ?? raw('rightMiddleIntermediate')
+  const hand = fingerJoint ? wrist.distanceTo(worldOf(fingerJoint)) * (raw('rightMiddleDistal') ? 1.2 : 1.5) : height * 0.065
 
   // Sort the mesh's bones: her head itself, then things that shouldn't count as her body.
   const hanging = new Set() // hair and face parts under the head, both arms
@@ -125,6 +130,7 @@ export function measureBody(vrm) {
     height,
     upperArm,
     lowerArm,
+    hand: THREE.MathUtils.clamp(hand, height * 0.04, height * 0.1),
     shoulder: { right: rightShoulder.toArray(), left: leftShoulder.toArray() },
     hipsY,
     face: hasFace

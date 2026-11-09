@@ -4,6 +4,10 @@ All notable changes to YDCP are listed here. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+### Fixed
+- Hands held together (Sway, Bop, Sleepy) no longer pass through each other: they hang relaxed, her right resting just in front of her left, spaced to fit each model's hands.
+- Picking **Sleepy** yourself keeps the full frame rate. She only slows down to save power when she dozes off because you're away.
+
 ## [0.1.2] - 2026-11-08
 
 Your own lines for her, and a kinder word when things go wrong. macOS and Windows.

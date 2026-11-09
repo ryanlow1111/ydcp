@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import * as THREE from 'three'
-import { LOOP, VIBES, makeLoops, sampledClip, wave } from '../src/moves.js'
+import { CLASPED_HANDS, LOOP, VIBES, armsClasped, makeLoops, sampledClip, wave } from '../src/moves.js'
+import { defaultBody, wristOf } from '../src/body.js'
 
 /** A stand-in for a loaded VRM: every humanoid bone exists, named after itself. */
 const fakeVrm = (missing = []) => ({
@@ -84,5 +85,26 @@ describe('built-in motions', () => {
     const names = idle.tracks.map(track => track.name)
     expect(names).toContain('Normalized_rightMiddleProximal.quaternion')
     expect(names).toContain('Normalized_leftMiddleProximal.quaternion')
+  })
+
+  test('hands held together rest one over the other, never in the same place', () => {
+    const chibi = { ...defaultBody(), height: 0.9, upperArm: 0.13, lowerArm: 0.12, hand: 0.07, shoulder: { right: [-0.1, 0.62, 0], left: [0.1, 0.62, 0] }, hipsY: 0.38, frontZ: 0.08 }
+    for (const body of [defaultBody(), chibi]) {
+      const arms = armsClasped(body)
+      const right = wristOf('right', body, { upper: arms.rightUpperArm, lower: arms.rightLowerArm })
+      const left = wristOf('left', body, { upper: arms.leftUpperArm, lower: arms.leftLowerArm })
+      // Her right hand lies in front of her left, at least a finger's thickness out…
+      expect(right[2] - left[2]).toBeGreaterThan(body.height * 0.02)
+      // …the wrists sit apart, each on its own side, and both are in front of her body.
+      expect(right[0]).toBeLessThan(0)
+      expect(left[0]).toBeGreaterThan(0)
+      expect(left[0] - right[0]).toBeGreaterThan(body.hand * 0.4)
+      expect(left[2]).toBeGreaterThan(body.frontZ)
+    }
+    // Relaxed: the wrists aren't turned, only the fingers curl.
+    expect(CLASPED_HANDS.rightHand).toBeUndefined()
+    expect(CLASPED_HANDS.leftHand).toBeUndefined()
+    expect(CLASPED_HANDS.rightMiddleProximal).toBeDefined()
+    expect(CLASPED_HANDS.leftMiddleProximal).toBeDefined()
   })
 })

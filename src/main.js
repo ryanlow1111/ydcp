@@ -581,4 +581,19 @@ async function start() {
   await loadModel(await currentModel().catch(() => null))
 }
 
-start()
+// This page only works inside the app. Opened from the dev server in a normal browser, it says
+// where the browser versions are instead of staying blank (dev only; never in a release).
+if (import.meta.env.DEV && !window.__TAURI_INTERNALS__) {
+  const card = document.getElementById('card')
+  card.hidden = false
+  card.innerHTML = `<h1>YDCP dev server</h1>
+    <p>This page is the app's window; it only runs inside YDCP (<code>npm run tauri dev</code>).</p>
+    <p>In a browser, open:</p>
+    <ul>
+      <li><a href="/dev/app.html?model=vrm1-sample">dev/app.html</a>: the whole app, with the Mac/Windows side faked</li>
+      <li><a href="/dev/pose.html?model=vrm1-sample">dev/pose.html</a>: the pose lab</li>
+    </ul>
+    <p class="small">Add <code>?model=NAME</code> for <code>dev/models/NAME.vrm</code>.</p>`
+} else {
+  start()
+}
