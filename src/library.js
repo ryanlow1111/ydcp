@@ -243,12 +243,15 @@ export function layeredLines(builtIn, layers, category) {
   return list
 }
 
+/** Faces a profile can map: YDCP's faces, plus `pat`, her face only while you pat her head. */
+export const PROFILE_FACES = [...FACES, 'pat']
+
 /** A model profile's settings, checked, with defaults. */
 export function modelProfile(settings = {}) {
   const faces = {}
   if (settings.faces && typeof settings.faces === 'object') {
     for (const [ours, theirs] of Object.entries(settings.faces)) {
-      if (FACES.includes(ours) && isText(theirs)) {
+      if (PROFILE_FACES.includes(ours) && isText(theirs)) {
         faces[ours] = theirs
       }
     }

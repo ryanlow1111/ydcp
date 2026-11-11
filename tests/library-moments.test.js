@@ -197,6 +197,12 @@ describe('model profiles', () => {
     expect(modelProfile()).toEqual({ name: null, credit: null, scale: 1, faces: {}, outfit: null, lines: null, motionFixes: {} })
   })
 
+  test('a profile can pick her face for head pats, and only known faces', () => {
+    expect(modelProfile({ faces: { pat: 'Interested', happy: 'Joy', wink: 'Wink', sad: '' } }).faces).toEqual({ pat: 'Interested', happy: 'Joy' })
+    // The pat face resolves like any other: by name, any case.
+    expect(resolveFace('pat', ['happy', 'Interested'], { pat: 'interested' })).toBe('Interested')
+  })
+
   test('keeps valid settings, drops the rest', () => {
     const profile = modelProfile({
       name: 'Aiko',

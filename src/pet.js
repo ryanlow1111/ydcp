@@ -684,7 +684,8 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
 
     // Faces: a held face wins, then a surprised poke, then a pat's contented smile (eyes closed
     // if the model's relaxed face does that), then the moment's face, else a soft smile.
-    const patFace = faceFor('relaxed') ? 'relaxed' : 'happy'
+    // Her own pat face if the profile picks one (faces.pat), else relaxed, else happy.
+    const patFace = profile.faces.pat && faceFor('pat') ? 'pat' : faceFor('relaxed') ? 'relaxed' : 'happy'
     const face = faceFor(heldFace ?? (sincePoke < 0.45 ? 'surprised' : pat.amount > 0.5 ? patFace : momentFace))
     const em = vrm.expressionManager
     if (em) {

@@ -4,6 +4,9 @@ All notable changes to YDCP are listed here. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+### Added
+- Choose her face for head pats in a model's profile: `"faces": { "pat": "Joy no mouth" }`. It changes only the pat face; relaxed stays relaxed everywhere else.
+
 ### Fixed
 - Hands held together (Sway, Bop, Sleepy) no longer pass through each other: they hang relaxed, her right resting just in front of her left, spaced to fit each model's hands.
 - Picking **Sleepy** yourself keeps the full frame rate. She only slows down to save power when she dozes off because you're away.

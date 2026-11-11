@@ -42,7 +42,7 @@ A JSON file with the same name as the model, next to it: `my-model.vrm` + `my-mo
 | `scale` | Extra size (1.0 = automatic fit) | `1.0` |
 | `outfit` | Exactly which expressions are [outfit parts](#outfit-parts). `[]` means none | Worked out by YDCP |
 | `lines` | This character's own lines: greetings, musings, pats and more, added to hers or replacing them. See [lines.md](lines.md) | Her own lines |
-| `faces` | Maps YDCP faces (`happy`, `angry`, `sad`, `surprised`, `relaxed`, `blink`) to your model's expression names | Standard VRM expression names |
+| `faces` | Maps YDCP faces (`happy`, `angry`, `sad`, `surprised`, `relaxed`, `blink`) to your model's expression names. `pat` sets her face while you pat her head, for example `"pat": "Joy no mouth"`, without changing `relaxed` anywhere else | Standard VRM expression names; a pat uses `relaxed`, else `happy` |
 | `motionFixes` | Arm adjustments per motion `id`, for models whose head, hair or sleeves hide their hands | None: motions play exactly as made |
 
 ### `motionFixes.<motion id>.clearArms`

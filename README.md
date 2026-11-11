@@ -142,7 +142,7 @@ Put a JSON file next to the model with the same name, for example `models/my-mod
 }
 ```
 
-- `faces`: maps YDCP's faces (`happy`, `angry`, `sad`, `surprised`, `relaxed`, `blink`) to your model's expression names, if it uses custom ones.
+- `faces`: maps YDCP's faces (`happy`, `angry`, `sad`, `surprised`, `relaxed`, `blink`) to your model's expression names, if it uses custom ones. Add `"pat"` to choose her face while you pat her head (it's `relaxed` otherwise). Use the names in **Menu → Expressions**.
 - `outfit`: the expressions that show or hide a part of her outfit (a hat, glasses), if YDCP sorts them wrong. See [docs/models.md](docs/models.md#outfit-parts).
 - `scale`: makes her bigger or smaller (1.0 = auto fit).
 - `motionFixes`: moves the arms during a motion, for models whose big heads or long hair hide their hands. See [docs/models.md](docs/models.md).
