@@ -1,6 +1,7 @@
 // The companion: draws a VRM model with three.js and keeps her alive, calmly: a gentle idle
-// loop, a head that follows the cursor, faces and blinks. Cute moments (built in, or from .vrma
-// files) only happen when asked: a click, the menu, a greeting, an agent finishing.
+// loop, eyes that watch the cursor move and then come back to you (gaze.js), faces and blinks.
+// Dragged, she hangs from your hand and swings (carry.js). Cute moments (built in, or from
+// .vrma files) only happen when asked: a click, the menu, a greeting, an agent finishing.
 // Vibes → Auto (drift) brings back the livelier rhythm for those who want it.
 // Everything here runs on the user's computer; nothing is fetched from the internet.
 
@@ -9,7 +10,9 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm'
 import { VRMAnimationLoaderPlugin, VRMLookAtQuaternionProxy, createVRMAnimationClip } from '@pixiv/three-vrm-animation'
 import { defaultBody, measureBody } from './body.js'
-import { makeLoops, VIBES } from './moves.js'
+import { createCarry } from './carry.js'
+import { createGaze } from './gaze.js'
+import { makeCarried, makeLoops, VIBES } from './moves.js'
 import { MOMENTS, MOMENT_IDS, makeMoments } from './moments.js'
 import { applyTrim, clearArms } from './fixes.js'
 // `text` (not `t`): in this file `t` is the animation clock.
@@ -33,6 +36,10 @@ const SOFT_SMILE = 0.35
 const VOWELS = ['aa', 'oh', 'aa', 'ee', 'ih', 'ou', 'oh']
 /** How long she moves her mouth for a line: about a syllable every three letters, within limits. */
 const talkSeconds = line => Math.min(4, Math.max(0.6, line.length * 0.055))
+/** After one poke too many she looks away, cross, for this long (a head pat ends it sooner). */
+const HUFF_S = 2.8
+/** Held up, she's lifted by this much of her height. */
+const CARRY_LIFT = 0.025
 
 /** Loads `.vrma` bytes into a VRM animation (independent of any model). */
 export async function parseMotion(bytes) {
@@ -76,17 +83,18 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
 
   const timer = new THREE.Timer()
 
-  /** Where her eyes and head aim, -1..1 each way; eased toward the cursor. */
-  const cursor = { x: 0, y: 0 }
+  /** Where she looks (the moving cursor, you, a glance away), and how she hangs when carried. */
+  const attention = createGaze()
+  const carrying = createCarry()
 
   /**
    * The cursor is at window-local (x, y) logical pixels, possibly far outside the window.
-   * She turns toward it: fully when it's a window-and-a-half away, from around her face.
+   * While it moves she turns toward it: fully when it's a window-and-a-half away, from around
+   * her face.
    */
   function lookAt(x, y) {
     const clamp = value => Math.max(-1, Math.min(1, value))
-    cursor.x = clamp((x - innerWidth / 2) / (innerWidth * 1.5))
-    cursor.y = clamp((y - innerHeight * 0.3) / innerHeight)
+    attention.cursor(timer.getElapsed(), x, y, clamp((x - innerWidth / 2) / (innerWidth * 1.5)), clamp((y - innerHeight * 0.3) / innerHeight))
     feelPat(x, y)
   }
 
@@ -132,6 +140,11 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     }
     pat.turns = pat.turns.filter(at => t - at < 1.5)
     if (pat.turns.length >= 3) {
+      // A pat makes up for too many pokes.
+      if (t < huffUntil) {
+        huffUntil = t
+        attention.lookAway(t, 0)
+      }
       if (t > pat.until && t - pat.saidAt > 45 && Math.random() < 0.5) {
         pat.saidAt = t
         const patLines = lines('lines.pat')
@@ -157,6 +170,8 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
   /** Library motions as given (kept so they can be rebuilt for another model). */
   let libraryEntries = []
   let base = null
+  /** How she hangs while she's dragged (it takes her vibe's place meanwhile). */
+  let carried = null
   let oneOff = null
   let momentFace = null
   let heldFace = null
@@ -189,19 +204,24 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
   addEventListener('resize', resize)
   resize()
 
+  /** What shows when no moment is playing: her vibe, or how she hangs while carried. */
+  const under = () => (carrying.held && carried ? carried : base)
+
   function setBase(name) {
     const next = loops[name]
     if (!next || next === base) {
       return
     }
-    next.reset().setEffectiveWeight(oneOff ? 0 : 1)
+    // Under a moment, or while she's carried, the new loop waits unseen.
+    const covered = oneOff !== null || under() !== base
+    next.reset().setEffectiveWeight(covered ? 0 : 1)
     // The first loop starts at full weight: fading in from nothing would show her T-pose.
-    if (!oneOff && base) {
+    if (!covered && base) {
       next.fadeIn(FADE)
     }
     next.play()
     if (base) {
-      if (oneOff) {
+      if (covered) {
         base.stop()
       } else {
         base.fadeOut(FADE)
@@ -215,7 +235,42 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
       oneOff.fadeOut(FADE)
       oneOff = null
       momentFace = null
-      base?.reset().setEffectiveWeight(1).fadeIn(FADE).play()
+      under()?.reset().setEffectiveWeight(1).fadeIn(FADE).play()
+    }
+  }
+
+  /** Picked up to be dragged: she hangs from your hand, wide-eyed for a moment. */
+  function pickUp() {
+    if (!vrm || carrying.held) {
+      return
+    }
+    carrying.pickUp()
+    carriedAt = timer.getElapsed()
+    if (!oneOff && carried) {
+      base?.fadeOut(0.25)
+      carried.reset().setEffectiveWeight(1).fadeIn(0.25).play()
+    }
+  }
+
+  /** The pointer is at screen (x, y) logical pixels while she's carried. */
+  function carry(x, y) {
+    if (carrying.move(timer.getElapsed(), x, y) === 'dizzy') {
+      const dizzy = lines('lines.dizzy')
+      onSay(dizzy[Math.floor(Math.random() * dizzy.length)])
+    }
+  }
+
+  /** Put down: back on her feet, into her vibe. */
+  function putDown() {
+    if (!carrying.held) {
+      return
+    }
+    carrying.drop()
+    if (oneOff) {
+      carried?.stop()
+    } else {
+      carried?.fadeOut(0.35)
+      base?.reset().setEffectiveWeight(1).fadeIn(0.35).play()
     }
   }
 
@@ -274,6 +329,8 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     loops = {}
     moments = {}
     base = null
+    carried = null
+    carrying.drop()
     oneOff = null
     momentFace = null
   }
@@ -337,6 +394,7 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
         action: mixer.clipAction(clip),
       }
     }
+    carried = mixer.clipAction(makeCarried(vrm, vrm0, figure))
     buildLibrary()
     setBase(vibeChoice === 'auto' || !loops[vibeChoice] ? 'sway' : vibeChoice)
     const t = timer.getElapsed()
@@ -381,6 +439,8 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
   let pokedAt = -Infinity
   let asleep = false
   let pokeMomentAt = -Infinity
+  let huffUntil = -Infinity
+  let carriedAt = -Infinity
 
   /** Plays a moment once over her vibe, then fades back. Says its line unless `quiet`. */
   function playMoment(id, { quiet = false } = {}) {
@@ -394,7 +454,7 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     moment.action.reset().setLoop(THREE.LoopOnce, 1)
     moment.action.clampWhenFinished = true
     moment.action.setEffectiveWeight(1).fadeIn(0.4).play()
-    base?.fadeOut(0.4)
+    under()?.fadeOut(0.4)
     oneOff = moment.action
     momentFace = moment.face
     lastMoment = id
@@ -535,6 +595,15 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     pokeMomentAt = t + 0.35
   }
 
+  /** One poke too many: no moment this time. She frowns and looks away for a bit. */
+  function huff() {
+    const t = timer.getElapsed()
+    pokeMomentAt = Infinity
+    endMoment()
+    huffUntil = t + HUFF_S
+    attention.lookAway(t, HUFF_S)
+  }
+
   /** The motions she can do, for the menu. */
   function catalogue() {
     const builtIn = MOMENT_IDS.map(id => ({ id, name: text(`moment.${id}`) }))
@@ -563,6 +632,8 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
   let nextBlink = 2
   let blinkEnd = 0
   const gaze = { x: 0, y: 0 }
+  /** Her eyes, which get there before her head does. */
+  const eyes = { x: 0, y: 0 }
   /** The bones the follow layer turns, each with the clip's own rotation from the last frame. */
   const FOLLOW_BASE = new Map(['head', 'neck', 'chest'].map(name => [name, new THREE.Quaternion()]))
   const extra = new THREE.Quaternion()
@@ -655,11 +726,15 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     // Being patted: she leans into it, and looks up at the cursor less.
     pat.amount += ((t < pat.until ? 1 : 0) - pat.amount) * Math.min(1, dt * 4)
 
-    // Head, neck and chest turn toward the cursor, eased; less during a moment or a pat.
+    // Head, neck and chest turn to where she's looking, eased; less during a moment or a pat.
+    // Her eyes move first and faster.
+    const aim = attention.aim(t)
     const follow = (oneOff ? 0.35 : base === loops.sleepy ? 0 : 1) * (1 - pat.amount * 0.7)
-    gaze.x += (cursor.x * follow - gaze.x) * Math.min(1, dt * 4)
-    gaze.y += (cursor.y * follow - gaze.y) * Math.min(1, dt * 4)
-    lookTarget.position.set(cursor.x, -cursor.y * 0.7, -2)
+    gaze.x += (aim.x * aim.head * follow - gaze.x) * Math.min(1, dt * 4)
+    gaze.y += (aim.y * aim.head * follow - gaze.y) * Math.min(1, dt * 4)
+    eyes.x += (aim.x - eyes.x) * Math.min(1, dt * 12)
+    eyes.y += (aim.y - eyes.y) * Math.min(1, dt * 12)
+    lookTarget.position.set(eyes.x, -eyes.y * 0.7, -2)
     for (const [boneName, share] of [
       ['head', 0.55],
       ['neck', 0.25],
@@ -679,14 +754,28 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     }
     holder.rotation.y = Math.sin(t * 0.3) * 0.05
 
-    // A poke: a moment of surprise on her face (no hop: she stays where she stands).
-    const sincePoke = t - pokedAt
+    // Carried: she hangs from about her shoulders, lifted a little, feet swinging behind the
+    // way she's moved. Her hair and skirt follow by themselves (the model's own physics).
+    const hang = carrying.step(dt, t)
+    const pivot = figure.shoulder.right[1]
+    holder.rotation.z = hang.tilt
+    holder.position.set(pivot * Math.sin(hang.tilt), pivot * (1 - Math.cos(hang.tilt)) + hang.lift * figure.height * CARRY_LIFT, 0)
+    // Dizzy from being shaken: her head rolls round.
+    if (head && hang.dizzy > 0.01) {
+      head.quaternion.multiply(extra.setFromEuler(tilt.set(Math.sin(t * 6) * 0.12 * hang.dizzy, 0, Math.cos(t * 6) * 0.14 * hang.dizzy)))
+    }
 
-    // Faces: a held face wins, then a surprised poke, then a pat's contented smile (eyes closed
-    // if the model's relaxed face does that), then the moment's face, else a soft smile.
+    // A poke or being picked up: a moment of surprise on her face (no hop: she stays where
+    // she stands).
+    const sincePoke = Math.min(t - pokedAt, t - carriedAt)
+
+    // Faces: a held face wins, then a surprised poke, then a huff's frown or a dizzy spell,
+    // then a pat's contented smile (eyes closed if the model's relaxed face does that), then
+    // the moment's face, else a soft smile.
     // Her own pat face if the profile picks one (faces.pat), else relaxed, else happy.
     const patFace = profile.faces.pat && faceFor('pat') ? 'pat' : faceFor('relaxed') ? 'relaxed' : 'happy'
-    const face = faceFor(heldFace ?? (sincePoke < 0.45 ? 'surprised' : pat.amount > 0.5 ? patFace : momentFace))
+    const mood = sincePoke < 0.45 || hang.dizzy > 0.5 ? 'surprised' : t < huffUntil ? 'angry' : pat.amount > 0.5 ? patFace : momentFace
+    const face = faceFor(heldFace ?? mood)
     const em = vrm.expressionManager
     if (em) {
       const smile = faceFor('happy')
@@ -753,6 +842,10 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     setOutfit,
     toggleOutfit,
     poke,
+    huff,
+    pickUp,
+    carry,
+    putDown,
     lookAt,
     catalogue,
     describe,

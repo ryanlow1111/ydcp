@@ -1,8 +1,9 @@
 // YDCP front end: shows the chosen model from ~/.ydcp/models on the desktop, with the built-in
 // moments and any motions from ~/.ydcp/anims. Clicks pass through everywhere except on her;
-// drag her to move her, click to poke her. The menu (in the app) picks models, motions, vibes,
-// faces and size. She has her own mood (mood.js): sleepy when you're away, a hello when you're
-// back, musings; and, only if the agent link is on, a cheer when an agent finishes.
+// drag her to move her (she dangles: carry.js), click to poke her. The menu (in the app) picks
+// models, motions, vibes, faces and size. She has her own mood (mood.js): sleepy when you're
+// away, a hello when you're back, musings, a huff when poked too much; and, only if the agent
+// link is on, a cheer when an agent finishes.
 // With no model yet, a welcome card helps add one.
 
 import { getVersion } from '@tauri-apps/api/app'
@@ -30,6 +31,7 @@ import {
   moveWindowTo,
   onAgent,
   onCursor,
+  onInput,
   onLibraryChange,
   onLinesChange,
   onPick,
@@ -116,6 +118,13 @@ function act(actions) {
         say(action.line)
         break
       case 'say':
+        say(action.line)
+        break
+      case 'poke':
+        pet.poke()
+        break
+      case 'huff':
+        pet.huff()
         say(action.line)
         break
     }
@@ -341,19 +350,28 @@ async function ensurePet() {
     act(mood.activity(Date.now()))
     reminders.activity(Date.now())
   })
+  // Typing, clicking or scrolling counts as being here too, even with the cursor still.
+  await onInput(() => {
+    act(mood.activity(Date.now()))
+    reminders.activity(Date.now())
+  })
   wireGestures({
     element: canvas,
     getWindowPosition: windowPosition,
     scale: windowScale,
     moveWindowTo,
-    onPoke: () => {
-      const wasAsleep = mood.asleep
-      act(mood.activity(Date.now()))
-      if (!wasAsleep) {
-        pet.poke()
+    onPoke: () => act(mood.poke(Date.now())),
+    onPress: down => (down ? hit.hold() : hit.release()),
+    onDrag: (phase, x, y) => {
+      if (phase === 'start') {
+        act(mood.activity(Date.now()))
+        pet.pickUp()
+      } else if (phase === 'move') {
+        pet.carry(x, y)
+      } else {
+        pet.putDown()
       }
     },
-    onPress: down => (down ? hit.hold() : hit.release()),
   })
   wireResizing()
   return pet

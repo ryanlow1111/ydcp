@@ -192,6 +192,41 @@ export const CLASPED_HANDS = {
   ...leftOf(curledFingers({ index: 0.3, middle: 0.38, ring: 0.45, little: 0.5 })),
 }
 
+/**
+ * Held up by your hand while you drag her: shoulders hunched, arms a little out from her
+ * sides, legs hanging with toes pointed and a slow, small kick. A short loop of its own.
+ */
+export function makeCarried(vrm, vrm0 = false, body = defaultBody()) {
+  const reach = body.upperArm + body.lowerArm
+  const arms = armsTo(
+    body,
+    side => {
+      const shoulder = body.shoulder[side]
+      const out = Math.max(Math.abs(shoulder[0]) * 1.05, body.clearX + body.height * 0.02) + body.height * 0.035
+      return [sideSign(side) * out, shoulder[1] - reach * 0.86, body.height * 0.05]
+    },
+    side => [sideSign(side) * 0.5, 0, -1],
+  )
+  return sampledClip(
+    vrm,
+    'carried',
+    4,
+    t =>
+      combine(arms, RELAXED_HANDS, bothSides({ rightShoulder: [0, 0, -0.1] }), {
+        spine: [0.03, 0, 0],
+        neck: [0.04, 0, 0],
+        head: [0.05, 0, wave(t, 4) * 0.03],
+        rightUpperLeg: [-0.1 + wave(t, 2) * 0.06, 0, 0.03],
+        leftUpperLeg: [-0.1 - wave(t, 2) * 0.06, 0, -0.03],
+        rightLowerLeg: [0.28 + wave(t, 2, 0.2) * 0.08, 0, 0],
+        leftLowerLeg: [0.28 - wave(t, 2, 0.2) * 0.08, 0, 0],
+        rightFoot: [0.4, 0, 0],
+        leftFoot: [0.4, 0, 0],
+      }),
+    vrm0,
+  )
+}
+
 /** The vibe loops: idle, sway, bop and sleepy, each `LOOP` seconds long, fitted to `body`. */
 export function makeLoops(vrm, vrm0 = false, body = defaultBody()) {
   const clip = (name, pose) => sampledClip(vrm, name, LOOP, pose, vrm0)

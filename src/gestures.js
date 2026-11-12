@@ -1,4 +1,5 @@
-// Pressing on her: a quick click pokes her; pressing and moving drags her around.
+// Pressing on her: a quick click pokes her; pressing and moving drags her around (and she
+// feels it: see carry.js).
 //
 // Dragging moves the window with the pointer's screen position, so it works the same on macOS
 // and Windows and never needs the OS's own window-drag (which only starts on a mouse-down).
@@ -25,8 +26,10 @@ export function passedDragDistance(dx, dy) {
  * Wires pointer presses on `element`. `getWindowPosition()` gives the window's top-left in
  * physical pixels, `scale()` the window's scale factor, `moveWindowTo(x, y)` moves it
  * (physical pixels); `onPoke()` runs for a poke; `onPress(down)` tells whether a press is going on.
+ * `onDrag(phase, x, y)` follows a drag: 'start', then 'move' with the pointer's screen position
+ * (logical pixels), then 'end'.
  */
-export function wireGestures({ element, getWindowPosition, scale, moveWindowTo, onPoke, onPress }) {
+export function wireGestures({ element, getWindowPosition, scale, moveWindowTo, onPoke, onPress, onDrag = () => {} }) {
   let press = null
   let pendingMove = null
   let moving = false
@@ -78,6 +81,10 @@ export function wireGestures({ element, getWindowPosition, scale, moveWindowTo, 
     const dy = event.screenY - press.startY
     if (!press.moved && passedDragDistance(dx, dy)) {
       press.moved = true
+      onDrag('start', event.screenX, event.screenY)
+    }
+    if (press.moved) {
+      onDrag('move', event.screenX, event.screenY)
     }
     if (press.moved && press.origin !== null) {
       pendingMove = {
@@ -96,6 +103,9 @@ export function wireGestures({ element, getWindowPosition, scale, moveWindowTo, 
     press = null
     element.releasePointerCapture?.(event.pointerId)
     onPress(false)
+    if (kind === 'drag') {
+      onDrag('end', event.screenX, event.screenY)
+    }
     if (kind === 'poke') {
       onPoke()
     }

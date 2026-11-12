@@ -1,14 +1,19 @@
 // Her own mood, with or without an AI agent: she gets sleepy when you've been away, wakes up
-// when you're back, greets you, muses now and then (sometimes about the time of day), and —
-// only if the agent link is on — cheers when an agent finishes.
+// when you're back, greets you, muses now and then (sometimes about the time of day), huffs
+// when poked too much, and — only if the agent link is on — cheers when an agent finishes.
 //
 // Plain logic with the time passed in, so it's easy to test; main.js acts on what it returns.
 // Her lines are in src/locales/*.json.
 
 import { lines, t } from './i18n.js'
 
-/** No cursor movement or poke for this long, and she dozes off. */
+/** Nothing from the keyboard or mouse for this long, and she dozes off. */
 export const SLEEP_AFTER_MS = 10 * 60 * 1000
+/** This many pokes within this long is too many: she huffs… */
+export const POKE_STREAK = 4
+export const POKE_STREAK_MS = 5 * 1000
+/** …and ignores pokes for this long while she pouts. */
+export const SULK_MS = 3 * 1000
 /** Musings come this often (a random time in between). */
 export const MUSE_MIN_MS = 70 * 1000
 export const MUSE_MAX_MS = 160 * 1000
@@ -38,7 +43,7 @@ const pick = (key, random) => {
 
 /**
  * Her mood over time. Every method takes `now` (ms) and returns what to do, as a list of
- * actions: { do: 'sleep' | 'wake' | 'greet' | 'say' | 'cheer', line? }.
+ * actions: { do: 'sleep' | 'wake' | 'greet' | 'say' | 'cheer' | 'poke' | 'huff', line? }.
  */
 export function createMood({ now, random = Math.random, hourAt = time => new Date(time).getHours() }) {
   let asleep = false
@@ -46,9 +51,22 @@ export function createMood({ now, random = Math.random, hourAt = time => new Dat
   let nextMusing = now + MUSE_MIN_MS
   let greeted = false
   let lastTimeLineHour = -1
+  let pokes = []
+  let sulkUntil = -Infinity
 
   const scheduleMusing = time => {
     nextMusing = time + MUSE_MIN_MS + random() * (MUSE_MAX_MS - MUSE_MIN_MS)
+  }
+
+  /** The keyboard or mouse was touched, or she was pressed: you're here. */
+  const activity = time => {
+    lastActivity = time
+    if (asleep) {
+      asleep = false
+      scheduleMusing(time)
+      return [{ do: 'wake', line: pick('lines.wake', random) }]
+    }
+    return []
   }
 
   return {
@@ -71,15 +89,28 @@ export function createMood({ now, random = Math.random, hourAt = time => new Dat
       return [{ do: 'greet', line: special ?? pick('lines.greetings', random) }]
     },
 
-    /** The cursor moved or she was poked: you're here. */
-    activity(time) {
-      lastActivity = time
-      if (asleep) {
-        asleep = false
-        scheduleMusing(time)
-        return [{ do: 'wake', line: pick('lines.wake', random) }]
+    activity,
+
+    /**
+     * A quick click on her. It wakes her if she was dozing; otherwise it's a poke, and the
+     * fourth in a few seconds is one too many: she huffs, and ignores pokes while she pouts.
+     */
+    poke(time) {
+      const woke = activity(time)
+      if (woke.length > 0) {
+        pokes = []
+        return woke
       }
-      return []
+      if (time < sulkUntil) {
+        return []
+      }
+      pokes = [...pokes.filter(at => time - at < POKE_STREAK_MS), time]
+      if (pokes.length >= POKE_STREAK) {
+        pokes = []
+        sulkUntil = time + SULK_MS
+        return [{ do: 'huff', line: pick('lines.annoyed', random) }]
+      }
+      return [{ do: 'poke' }]
     },
 
     /** Called every few seconds: dozing off, and musings. */

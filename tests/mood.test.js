@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { setCustomLines } from '../src/i18n.js'
 import { customLines } from '../src/library.js'
-import { MUSE_MAX_MS, SLEEP_AFTER_MS, createMood, timeOfDayLine } from '../src/mood.js'
+import { MUSE_MAX_MS, POKE_STREAK, POKE_STREAK_MS, SLEEP_AFTER_MS, SULK_MS, createMood, timeOfDayLine } from '../src/mood.js'
 
 const kinds = actions => actions.map(action => action.do)
 /** A mood at noon-ish (no special time line) with predictable picks. */
@@ -47,6 +47,44 @@ describe('standalone mood (no agent needed)', () => {
   test('time-of-day lines', () => {
     expect(timeOfDayLine(12)).toMatch(/Lunch/)
     expect(timeOfDayLine(15)).toBeNull()
+  })
+})
+
+describe('pokes', () => {
+  test('a poke is a poke; a poke while she dozes just wakes her', () => {
+    const mood = make()
+    mood.start(0)
+    expect(mood.poke(1000)).toEqual([{ do: 'poke' }])
+    mood.tick(1000 + SLEEP_AFTER_MS)
+    expect(kinds(mood.poke(2000 + SLEEP_AFTER_MS))).toEqual(['wake'])
+    expect(mood.asleep).toBe(false)
+  })
+
+  test('too many pokes in a row: she huffs, ignores pokes while she pouts, then forgives', () => {
+    const mood = make()
+    mood.start(0)
+    for (let i = 0; i < POKE_STREAK - 1; i++) {
+      expect(kinds(mood.poke(1000 + i * 500))).toEqual(['poke'])
+    }
+    const last = 1000 + (POKE_STREAK - 1) * 500
+    expect(mood.poke(last)).toEqual([{ do: 'huff', line: 'Hey! One at a time…' }])
+    expect(mood.poke(last + SULK_MS - 1)).toEqual([])
+    expect(kinds(mood.poke(last + SULK_MS))).toEqual(['poke'])
+  })
+
+  test('pokes spread out over time never annoy her', () => {
+    const mood = make()
+    mood.start(0)
+    for (let i = 0; i < POKE_STREAK * 3; i++) {
+      expect(kinds(mood.poke(1000 + i * (POKE_STREAK_MS / 2)))).toEqual(['poke'])
+    }
+  })
+
+  test('a poke counts as being here', () => {
+    const mood = make()
+    mood.start(0)
+    mood.poke(SLEEP_AFTER_MS - 1)
+    expect(kinds(mood.tick(SLEEP_AFTER_MS + 1000))).not.toContain('sleep')
   })
 })
 

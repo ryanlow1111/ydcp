@@ -228,7 +228,8 @@ She can **optionally** react to an AI coding agent, such as cheering when a task
 ### 6.6 Mood: standalone first, agent optional
 - **Standalone:**
   - Calm by default (changed after beta feedback: constant motion was distracting): she stays on Idle, and moments only play on a poke, from the menu, or as a greeting. Vibes → Auto (drift) rotates loops every 20–40 s. Musings every 70–160 s.
-  - She gets sleepy after 10 minutes with no cursor movement and wakes when it moves or on a poke.
+  - She gets sleepy after 10 minutes with no keyboard or mouse input and wakes on the next input or a poke. `idle.rs` asks the system for the seconds since the last input (no permission, no key details); the cursor loop passes "you're here" on once a second.
+  - Her gaze (`gaze.js`): the moving cursor, then back to you, with glances. Four pokes in five seconds is a huff. Dragged, she dangles and swings (`carry.js`).
   - She greets you on launch and when she wakes.
 - **`agentLink`:**
   - `off` (**default**): never read it. A new user's YDCP never touches `state.json`.
@@ -279,7 +280,7 @@ Optional fields: `"line": "string"` (said in her bubble) and `"at": <ms epoch>`.
 | No open ports | No server; file watch only |
 | Least file access | Commands only touch `~/.ydcp/`; names validated (no `/`, `\`, `..`; allowed extensions); size caps |
 | Least permissions | `capabilities/default.json`: `core:event:default`, `core:window:allow-start-dragging`, `core:window:allow-set-size`, `window-state:default`, `dialog:allow-open`, `opener:allow-reveal-item-in-dir` (pet folder only), `opener:allow-open-url` (fixed docs and project links only) |
-| No special OS permissions | No Input Monitoring, Accessibility, Screen Recording, Camera or Mic, on either OS |
+| No special OS permissions | No Input Monitoring, Accessibility, Screen Recording, Camera or Mic, on either OS. The only things read about the user are the cursor position and the seconds since the last input |
 | No shell | No shell plugin |
 
 Install-time note: on Windows, if WebView2 is missing, the installer downloads it from Microsoft once.

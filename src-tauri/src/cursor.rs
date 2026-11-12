@@ -9,7 +9,9 @@
 //! Her window's position, size and scale are remembered from the window's own events
 //! (`Geometry`), so each check asks the OS one question (where's the cursor?) instead of five.
 //!
-//! The same loop saves her position a moment after she stops being moved.
+//! The same loop saves her position a moment after she stops being moved, and once a second
+//! tells the page whether the keyboard or mouse was touched (`idle`): typing counts as being
+//! here even while the cursor lies still.
 
 use std::sync::Mutex;
 use std::thread;
@@ -18,6 +20,7 @@ use std::time::{Duration, Instant};
 use serde::Serialize;
 use tauri::{Emitter, Manager, PhysicalPosition, Runtime, WebviewWindow};
 
+use crate::idle;
 use crate::settings::{self, Position};
 
 /// How often the cursor is checked while it's near her window…
@@ -28,6 +31,8 @@ const FAR_POLL: Duration = Duration::from_millis(200);
 const NEAR_DISTANCE: f64 = 240.0;
 /// How often the window's frame is re-read in full.
 const REFRESH_EVERY: Duration = Duration::from_secs(1);
+/// How often the page hears whether there was any keyboard or mouse input.
+const INPUT_EVERY: Duration = Duration::from_secs(1);
 /// How long after the last move before her position is written to disk.
 const SAVE_AFTER: Duration = Duration::from_millis(700);
 
@@ -155,9 +160,21 @@ pub fn start<R: Runtime>(window: WebviewWindow<R>) {
         let mut last: Option<Cursor> = None;
         let mut wait = NEAR_POLL;
         let mut refreshed = Instant::now();
+        let mut input_checked = Instant::now();
         loop {
             thread::sleep(wait);
             wait = FAR_POLL;
+            // Typing, clicking or scrolling with the cursor still: she hears "you're here" too.
+            // Sent even while she's hidden, so her mood and break reminders stay right.
+            let since_check = input_checked.elapsed();
+            if since_check >= INPUT_EVERY {
+                input_checked = Instant::now();
+                if idle::seconds()
+                    .is_some_and(|idle| idle::touched_since(idle, since_check.as_secs_f64()))
+                {
+                    let _ = window.emit_to(window.label(), "input", ());
+                }
+            }
             // Once a second, re-read the frame: catches being shown by the page, and anything
             // a window event missed. Cheap, compared with asking five questions every check.
             if refreshed.elapsed() >= REFRESH_EVERY {

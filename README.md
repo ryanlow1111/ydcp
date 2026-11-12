@@ -168,8 +168,8 @@ YDCP only reads your model from your own computer. It never uploads, shares or m
 
 | To… | Do this |
 |---|---|
-| Move her | Drag her |
-| Poke her | Click her quickly; she does a random cute moment |
+| Move her | Drag her; she dangles from your hand and swings as you go. Shake her and she gets dizzy |
+| Poke her | Click her quickly; she does a random cute moment. Poke her four times in a row and she huffs and looks away (a head pat makes up) |
 | Pat her head | Move the cursor gently back and forth over her head (no click); she smiles and leans in |
 | Click the app behind her | Just click; empty space is click-through |
 | Change size | Pinch on a trackpad, or hold **⌘** (Mac) / **Ctrl** (Windows) and scroll, over her. Or Menu → **Size** → Small / Medium / Large |
@@ -185,7 +185,9 @@ YDCP only reads your model from your own computer. It never uploads, shares or m
 | Save power on a laptop | Menu → **Frame rate** → 30 fps |
 | Hide / show | Menu → **Show / Hide** |
 
-When you leave the mouse alone for about 10 minutes she gets sleepy, and she wakes up when you're back.
+She watches the cursor while it moves, then looks back at you, with a glance away now and then.
+
+When you leave the keyboard and mouse alone for about 10 minutes she gets sleepy, and she wakes up when you're back. Typing counts as being there, even if the mouse doesn't move.
 
 ---
 
@@ -301,6 +303,7 @@ The `.json` files above are plain text files that you can open in any text edito
 - **No internet use while running.** No auto-update checks. Links (such as the Releases page) open in your browser only when you click them.
 - No open network ports. The AI agent link is a local file.
 - **No special permissions:** no screen recording, accessibility, input monitoring, camera or microphone.
+- **What she knows about you:** where the cursor is, and how many seconds ago the keyboard or mouse was last touched (one number from the system, so she knows you're there). Never which keys, what you typed, or which app you're in. Nothing is stored.
 - YDCP reads and writes only its own `.ydcp` folder, plus `.vrm` files you choose to open. The one exception is **Start at login**, which only when you turn it on adds a standard login entry (Mac: `~/Library/LaunchAgents/YDCP.plist`; Windows: the usual "Run" entry in your user registry).
 - The only time anything is downloaded is on Windows if WebView2 is missing during install, from Microsoft.
 

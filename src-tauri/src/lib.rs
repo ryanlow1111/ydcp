@@ -4,13 +4,15 @@
 //! end with three.js). There's no Dock or taskbar icon; a menu bar / notification-area icon
 //! holds the menu (`menu`). Clicks pass through everywhere except on her (`set_click_through`,
 //! driven by the front end from the cursor feed in `cursor`), she can be dragged, and she
-//! comes back where she was left (`settings`). Models and motions are read only from
+//! comes back where she was left (`settings`). She knows you're here from the cursor and from
+//! how long ago the keyboard or mouse was touched (`idle`). Models and motions are read only from
 //! `~/.ydcp/` (`assets`), and changes there are noticed (`watch`).
 
 mod agent;
 mod assets;
 mod cursor;
 mod i18n;
+mod idle;
 mod menu;
 mod settings;
 mod watch;

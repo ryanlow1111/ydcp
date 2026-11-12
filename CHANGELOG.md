@@ -6,6 +6,13 @@ All notable changes to YDCP are listed here. The format follows [Keep a Changelo
 
 ### Added
 - Choose her face for head pats in a model's profile: `"faces": { "pat": "Joy no mouth" }`. It changes only the pat face; relaxed stays relaxed everywhere else.
+- A gaze of her own: she watches the cursor while it moves, then looks back at you, with a glance away now and then. Her eyes get there before her head.
+- Poke her four times in a row and she huffs: a frown, a line, and she looks away for a moment. A head pat makes up.
+- Dragging her feels like carrying her: she's lifted a little, hangs with her legs dangling, swings behind the way you move her, and settles when you put her down. Shake her and she gets dizzy.
+- Your own lines for the huff and the dizzy spell: `annoyed` and `dizzy` in `lines.json` or a profile. See [docs/lines.md](docs/lines.md).
+
+### Changed
+- Typing counts as being there. She used to doze off after 10 minutes without the mouse moving, even mid-sentence, and a break reminder was put off the same way. YDCP now asks the system how long ago the keyboard or mouse was last touched: one number, never which keys, and no permission needed.
 
 ### Fixed
 - Hands held together (Sway, Bop, Sleepy) no longer pass through each other: they hang relaxed, her right resting just in front of her left, spaced to fit each model's hands.

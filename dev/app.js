@@ -4,10 +4,15 @@
 // git-ignored dev/models folder; settings live in this tab only.
 //
 // Console: __app.pick('aboutModel'), __app.pick('outfit', 'hat01'), __app.pick('face', 'happy01'),
-// __app.emit('agent', { mood: 'done' }), __app.settings, __app.catalogue
+// __app.emit('agent', { mood: 'done' }), __app.emit('cursor', { x: 300, y: 100, inside: true }),
+// __app.emit('input'), __app.settings, __app.catalogue
 
 const params = new URLSearchParams(location.search)
 const modelName = `${params.get('model') ?? 'vrm1-sample'}.vrm`
+// ?raf=timer keeps her animating in a hidden tab (browsers pause animation frames there).
+if (params.get('raf') === 'timer') {
+  window.requestAnimationFrame = callback => setTimeout(() => callback(performance.now()), 16)
+}
 
 // The page itself: index.html's body, so this never drifts from the app.
 const page = new DOMParser().parseFromString(await fetch('/index.html').then(r => r.text()), 'text/html')

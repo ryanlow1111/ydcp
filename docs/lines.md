@@ -51,11 +51,13 @@ A cool character's profile, `rei.json`, replacing hers completely:
 |---|---|
 | `greetings` | When she first appears |
 | `wake` | When you come back after she dozed off |
-| `sleep` | When she dozes off (10 minutes without the mouse) |
+| `sleep` | When she dozes off (10 minutes without the keyboard or mouse) |
 | `musings` | Now and then, every minute or two |
 | `cheer` | When the agent link says an agent finished (`done`) |
 | `failed` | When the agent link says something failed |
 | `pat` | Sometimes, when you pat her head |
+| `annoyed` | When you poke her four times in a row |
+| `dizzy` | When you shake her while dragging her |
 | `wave`, `peace`, `shy` | During the built-in moments of those names |
 
 Each is a list of lines; she picks one at random each time. A single line in quotes works too: `"pat": "Nyaa~"`.

@@ -76,6 +76,9 @@ export const setClickThrough = on => invoke('set_click_through', { on })
 /** Calls `handler({ x, y, inside })` whenever the cursor moves, wherever it is on screen. */
 export const onCursor = handler => listen('cursor', event => handler(event.payload))
 
+/** Calls `handler()` about once a second while the keyboard or mouse is in use (no details: just "you're here"). */
+export const onInput = handler => listen('input', () => handler())
+
 /** Calls `handler({ kind, id })` when a menu item for her is picked (moment, vibe, face, outfit, model, about). */
 export const onPick = handler => listen('pick', event => handler(event.payload))
 

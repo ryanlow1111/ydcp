@@ -195,6 +195,8 @@ export const LINE_CATEGORIES = {
   cheer: 'lines.cheer',
   failed: 'lines.failed',
   pat: 'lines.pat',
+  annoyed: 'lines.annoyed',
+  dizzy: 'lines.dizzy',
   wave: 'moment.wave.line',
   peace: 'moment.peace.line',
   shy: 'moment.shy.line',
