@@ -5,7 +5,8 @@
 //
 // Console: __app.pick('aboutModel'), __app.pick('outfit', 'hat01'), __app.pick('face', 'happy01'),
 // __app.emit('agent', { mood: 'done' }), __app.emit('cursor', { x: 300, y: 100, inside: true }),
-// __app.emit('input'), __app.settings, __app.catalogue
+// __app.emit('input'), __app.emit('woke', 3600), __app.settings, __app.catalogue,
+// __pet.zoneAt(160, 120) (what a click there would land on)
 
 const params = new URLSearchParams(location.search)
 const modelName = `${params.get('model') ?? 'vrm1-sample'}.vrm`

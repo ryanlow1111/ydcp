@@ -49,7 +49,7 @@ She can **optionally** react to an AI coding agent, such as cheering when a task
 |---|---|---|---|
 | App code (Rust, JS) | ✅ | MIT | Ours |
 | Built-in vibe loops (idle, sway, bop, sleepy) | ✅ | MIT | Generated in code (`makeLoops`), ours |
-| **Built-in moments** (wave, peace, shy) | ✅ | MIT | **New:** written in code from curves, like the vibe loops; no third-party files (§6.3) |
+| **Built-in moments** (wave, peace, shy, high five) | ✅ | MIT | **New:** written in code from curves, like the vibe loops; no third-party files (§6.3) |
 | App icon, tray icon, UI art | ✅ | MIT or CC0 | Original |
 | Default VRM model | ❌ **decided: none** | — | Users bring their own model (VRoid Studio, VRoid Hub, BOOTH, or a converted VRChat avatar whose terms allow it). See the README |
 | VRoid VRMA_MotionPack (BOOTH 5512385) | ❌ | Free, **no redistribution** | Users download from BOOTH; we ship a `motions.json` preset for those files (the preset is our text, not their files) |
@@ -230,6 +230,8 @@ She can **optionally** react to an AI coding agent, such as cheering when a task
   - Calm by default (changed after beta feedback: constant motion was distracting): she stays on Idle, and moments only play on a poke, from the menu, or as a greeting. Vibes → Auto (drift) rotates loops every 20–40 s. Musings every 70–160 s.
   - She gets sleepy after 10 minutes with no keyboard or mouse input and wakes on the next input or a poke. `idle.rs` asks the system for the seconds since the last input (no permission, no key details); the cursor loop passes "you're here" on once a second.
   - Her gaze (`gaze.js`): the moving cursor, then back to you, with glances. Four pokes in five seconds is a huff. Dragged, she dangles and swings (`carry.js`).
+  - Touch (`touch.js`): a poke lands on her face (a flinch), a hand (she holds it up for a high five; a click on the raised hand is the clap) or her body (a moment). A still press of half a second is a hold: she leans in. A cursor rushing at her face makes her flinch; one resting on it for three seconds makes her shy.
+  - After the computer slept five minutes or more (the cursor loop sees the clock jump), she welcomes you back at the next input.
   - She greets you on launch and when she wakes.
 - **`agentLink`:**
   - `off` (**default**): never read it. A new user's YDCP never touches `state.json`.

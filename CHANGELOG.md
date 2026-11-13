@@ -9,12 +9,18 @@ All notable changes to YDCP are listed here. The format follows [Keep a Changelo
 - A gaze of her own: she watches the cursor while it moves, then looks back at you, with a glance away now and then. Her eyes get there before her head.
 - Poke her four times in a row and she huffs: a frown, a line, and she looks away for a moment. A head pat makes up.
 - Dragging her feels like carrying her: she's lifted a little, hangs with her legs dangling, swings behind the way you move her, and settles when you put her down. Shake her and she gets dizzy.
-- Your own lines for the huff and the dizzy spell: `annoyed` and `dizzy` in `lines.json` or a profile. See [docs/lines.md](docs/lines.md).
+- She feels where you click her: a click on her face makes her flinch (and often say something), a click on a hand makes her hold that hand up for a high five (click the raised hand to clap it: it's knocked back a little and springs home), and anywhere else is a poke as before.
+- High five: a new built-in moment, also in Menu → Motions.
+- Press and hold her for half a second and she leans into it, as for a head pat, until you let go.
+- Cursor play, no click needed: rush the cursor at her face and she flinches; leave it resting on her face for three seconds and she gets shy.
+- She welcomes you back when you open the computer after it slept for five minutes or more, with a good morning if it's morning.
+- Your own lines for all of these: `annoyed`, `dizzy`, `face`, `held`, `back` and `highfive` in `lines.json` or a profile. See [docs/lines.md](docs/lines.md).
 
 ### Changed
 - Typing counts as being there. She used to doze off after 10 minutes without the mouse moving, even mid-sentence, and a break reminder was put off the same way. YDCP now asks the system how long ago the keyboard or mouse was last touched: one number, never which keys, and no permission needed.
 
 ### Fixed
+- Picking a moment again while it's still playing no longer shows her T-pose for an instant.
 - Hands held together (Sway, Bop, Sleepy) no longer pass through each other: they hang relaxed, her right resting just in front of her left, spaced to fit each model's hands.
 - Picking **Sleepy** yourself keeps the full frame rate. She only slows down to save power when she dozes off because you're away.
 

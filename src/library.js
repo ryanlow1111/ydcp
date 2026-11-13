@@ -197,9 +197,13 @@ export const LINE_CATEGORIES = {
   pat: 'lines.pat',
   annoyed: 'lines.annoyed',
   dizzy: 'lines.dizzy',
+  face: 'lines.face',
+  held: 'lines.held',
+  back: 'lines.back',
   wave: 'moment.wave.line',
   peace: 'moment.peace.line',
   shy: 'moment.shy.line',
+  highfive: 'moment.highfive.line',
 }
 /** Lines longer than this are cut (her bubble is small); lists are kept to a sensible size. */
 export const MAX_LINE_LENGTH = 140

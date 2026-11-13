@@ -11,11 +11,11 @@
 //!
 //! The same loop saves her position a moment after she stops being moved, and once a second
 //! tells the page whether the keyboard or mouse was touched (`idle`): typing counts as being
-//! here even while the cursor lies still.
+//! here even while the cursor lies still. It also notices when the computer slept.
 
 use std::sync::Mutex;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use serde::Serialize;
 use tauri::{Emitter, Manager, PhysicalPosition, Runtime, WebviewWindow};
@@ -161,9 +161,17 @@ pub fn start<R: Runtime>(window: WebviewWindow<R>) {
         let mut wait = NEAR_POLL;
         let mut refreshed = Instant::now();
         let mut input_checked = Instant::now();
+        let mut clock = SystemTime::now();
         loop {
             thread::sleep(wait);
             wait = FAR_POLL;
+            // The clock jumped while this loop napped a moment: the computer slept. The page
+            // hears for how long, and she welcomes you back when you next touch it.
+            let now = SystemTime::now();
+            if let Some(seconds) = idle::slept_for(clock, now) {
+                let _ = window.emit_to(window.label(), "woke", seconds);
+            }
+            clock = now;
             // Typing, clicking or scrolling with the cursor still: she hears "you're here" too.
             // Sent even while she's hidden, so her mood and break reminders stay right.
             let since_check = input_checked.elapsed();

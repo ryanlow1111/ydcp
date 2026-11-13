@@ -19,6 +19,12 @@ export const CENTRE_LINE = new Set(['hips', 'spine', 'chest', 'upperChest', 'nec
 /** The same pose on the other side of the body: a right-arm pose made into a left-arm one. */
 export const mirror = ([x, y, z]) => [x, -y, -z]
 
+/** A whole pose seen in a mirror: left and right swap places, and every turn flips with them. */
+export function mirrorPose(pose) {
+  const other = bone => (bone.startsWith('right') ? bone.replace(/^right/, 'left') : bone.replace(/^left/, 'right'))
+  return Object.fromEntries(Object.entries(pose).map(([bone, value]) => [other(bone), mirror(value)]))
+}
+
 /** Every loop lasts a whole number of each rhythm in it, so its end joins its start smoothly. */
 export const LOOP = 24
 

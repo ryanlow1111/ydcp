@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest'
 import { TABLES } from '../src/i18n.js'
 import * as THREE from 'three'
 import { customLines, faceList, isTrackingShape, layeredLines, modelProfile, motionEntries, parseJson, resolveFace, sortExpressions, tidyName } from '../src/library.js'
-import { MOMENTS, MOMENT_IDS, makeMoments } from '../src/moments.js'
+import { MOMENTS, MOMENT_IDS, makeMirrored, makeMoments } from '../src/moments.js'
 import { defaultBody, solveArm, wristOf } from '../src/body.js'
 import { crouchEnd, trimClip } from '../src/fixes.js'
 
@@ -218,8 +218,26 @@ describe('model profiles', () => {
 })
 
 describe('built-in moments', () => {
-  test('the set is Wave, Peace and Shy (Cheer and Stretch were removed)', () => {
-    expect(MOMENT_IDS).toEqual(['wave', 'peace', 'shy'])
+  test('the set is Wave, Peace, Shy and High five (Cheer and Stretch were removed)', () => {
+    expect(MOMENT_IDS).toEqual(['wave', 'peace', 'shy', 'highfive'])
+  })
+
+  test('the high five with her other hand is the same clip in a mirror', () => {
+    const right = makeMoments(fakeVrm(), false, defaultBody(), ['highfive']).highfive
+    const left = makeMirrored(fakeVrm(), false, defaultBody(), 'highfive')
+    expect(left.name).toBe('highfive:left')
+    expect(left.duration).toBe(right.duration)
+    const track = (clip, bone) => clip.tracks.find(found => found.name.startsWith(`Normalized_${bone}.`))
+    const raised = track(right, 'rightUpperArm').values
+    const mirrored = track(left, 'leftUpperArm').values
+    // A mirrored turn: the same x and w, y and z the other way.
+    for (let i = 0; i < raised.length; i += 4) {
+      expect(mirrored[i]).toBeCloseTo(raised[i], 5)
+      expect(mirrored[i + 1]).toBeCloseTo(-raised[i + 1], 5)
+      expect(mirrored[i + 2]).toBeCloseTo(-raised[i + 2], 5)
+      expect(mirrored[i + 3]).toBeCloseTo(raised[i + 3], 5)
+    }
+    expect(left.tracks.every(found => found.values.every(Number.isFinite))).toBe(true)
   })
 
   test('every moment is a valid clip of the right length', () => {

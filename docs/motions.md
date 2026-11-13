@@ -5,7 +5,7 @@
 These need no files and work with any VRM model:
 
 - **Vibes** (looping): Idle, Sway, Bop, Sleepy. She stays calm on **Idle** by default; **Menu → Motions → Vibes → Auto (drift)** lets her drift between them.
-- **Moments** (played once): Wave, Peace, Shy. They only play when asked: click her, pick one from the menu, or as her greeting when you come back.
+- **Moments** (played once): Wave, Peace, Shy, High five. They only play when asked: click her, pick one from the menu, or as her greeting when you come back. Two have their own triggers: click a hand for a High five, and rest the cursor on her face for Shy.
 
 They're fitted to each model when it loads: YDCP measures her arms, shoulders and face, then places her hands for that body, so they land right on a chibi or a tall figure.
 

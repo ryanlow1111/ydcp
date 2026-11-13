@@ -3,6 +3,11 @@
 //! One number, asked of the system: never which keys, where the click was, or which app had
 //! it. No OS permission on either platform. It tells her you're here while you type with the
 //! mouse lying still, so she doesn't doze off (and a break reminder isn't put off) mid-sentence.
+//!
+//! Also here: noticing that the computer itself slept (the clock jumped), so she can welcome
+//! you back.
+
+use std::time::{Duration, SystemTime};
 
 /// Seconds since the last keyboard, mouse or trackpad input; `None` where the system can't say.
 #[cfg(target_os = "macos")]
@@ -71,6 +76,17 @@ fn sensible(idle: f64) -> Option<f64> {
     (idle.is_finite() && idle >= 0.0).then_some(idle)
 }
 
+/// Two looks at the clock a fraction of a second apart, yet this far apart: the computer slept.
+pub const SLEPT_AFTER: Duration = Duration::from_secs(90);
+
+/// How long the computer slept between two checks of the clock, in seconds, if it did.
+pub fn slept_for(before: SystemTime, now: SystemTime) -> Option<f64> {
+    now.duration_since(before)
+        .ok()
+        .filter(|gap| *gap >= SLEPT_AFTER)
+        .map(|gap| gap.as_secs_f64())
+}
+
 /// Whether there was input since the last check, `since_check` seconds ago.
 pub fn touched_since(idle: f64, since_check: f64) -> bool {
     idle < since_check
@@ -98,6 +114,19 @@ mod tests {
     fn input_since_the_last_check() {
         assert!(touched_since(0.2, 1.0));
         assert!(!touched_since(45.0, 1.0));
+    }
+
+    #[test]
+    fn a_jump_in_the_clock_means_the_computer_slept() {
+        let before = SystemTime::now();
+        assert_eq!(slept_for(before, before + Duration::from_millis(200)), None);
+        assert_eq!(slept_for(before, before + Duration::from_secs(30)), None);
+        assert_eq!(
+            slept_for(before, before + Duration::from_secs(3600)),
+            Some(3600.0)
+        );
+        // The clock set back: not a sleep.
+        assert_eq!(slept_for(before + Duration::from_secs(3600), before), None);
     }
 
     #[cfg(any(target_os = "macos", windows))]

@@ -56,9 +56,12 @@ A cool character's profile, `rei.json`, replacing hers completely:
 | `cheer` | When the agent link says an agent finished (`done`) |
 | `failed` | When the agent link says something failed |
 | `pat` | Sometimes, when you pat her head |
+| `back` | When you come back after the computer slept (five minutes or more) |
+| `face` | Often, when you poke her face |
+| `held` | Now and then, while you press and hold her |
 | `annoyed` | When you poke her four times in a row |
 | `dizzy` | When you shake her while dragging her |
-| `wave`, `peace`, `shy` | During the built-in moments of those names |
+| `wave`, `peace`, `shy`, `highfive` | During the built-in moments of those names. `shy` is also what she says when the cursor rests on her face |
 
 Each is a list of lines; she picks one at random each time. A single line in quotes works too: `"pat": "Nyaa~"`.
 

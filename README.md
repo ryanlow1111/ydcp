@@ -170,6 +170,9 @@ YDCP only reads your model from your own computer. It never uploads, shares or m
 |---|---|
 | Move her | Drag her; she dangles from your hand and swings as you go. Shake her and she gets dizzy |
 | Poke her | Click her quickly; she does a random cute moment. Poke her four times in a row and she huffs and looks away (a head pat makes up) |
+| Poke her cheek | Click her face; she flinches, and often says something |
+| High five | Click one of her hands; she holds that hand up. Click the raised hand to clap it |
+| Hold her | Press on her and keep still for half a second; she leans into it until you let go |
 | Pat her head | Move the cursor gently back and forth over her head (no click); she smiles and leans in |
 | Click the app behind her | Just click; empty space is click-through |
 | Change size | Pinch on a trackpad, or hold **⌘** (Mac) / **Ctrl** (Windows) and scroll, over her. Or Menu → **Size** → Small / Medium / Large |
@@ -185,7 +188,9 @@ YDCP only reads your model from your own computer. It never uploads, shares or m
 | Save power on a laptop | Menu → **Frame rate** → 30 fps |
 | Hide / show | Menu → **Show / Hide** |
 
-She watches the cursor while it moves, then looks back at you, with a glance away now and then.
+She watches the cursor while it moves, then looks back at you, with a glance away now and then. Rush the cursor at her face and she flinches; leave it resting on her face for a few seconds and she gets shy.
+
+When you open your computer again after it slept for five minutes or more, she welcomes you back.
 
 When you leave the keyboard and mouse alone for about 10 minutes she gets sleepy, and she wakes up when you're back. Typing counts as being there, even if the mouse doesn't move.
 
@@ -193,7 +198,7 @@ When you leave the keyboard and mouse alone for about 10 minutes she gets sleepy
 
 ## Motions
 
-**Built in (no files needed):** vibes (Idle, Sway, Bop, Sleepy) and moments (Wave, Peace, Shy). They work with any VRM model.
+**Built in (no files needed):** vibes (Idle, Sway, Bop, Sleepy) and moments (Wave, Peace, Shy, High five). They work with any VRM model.
 
 **Add more:** put `.vrma` files (VRM Animation) into the motions folder, or use **Motions → Add motions…**:
 

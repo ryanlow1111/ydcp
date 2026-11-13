@@ -36,6 +36,7 @@ import {
   onLinesChange,
   onPick,
   onProblem,
+  onWoke,
   readAnim,
   readLines,
   readModel,
@@ -105,7 +106,8 @@ function act(actions) {
         pet.setAsleep(false)
         if (action.line) {
           pet.playMoment('wave', { quiet: true })
-          say(action.line)
+          // Back from the computer's sleep: you may still be unlocking it, so her bubble stays.
+          say(action.line, { hold: action.linger ? 10000 : 0 })
         }
         break
       case 'greet':
@@ -121,7 +123,12 @@ function act(actions) {
         say(action.line)
         break
       case 'poke':
-        pet.poke()
+        pet.poke(action.zone)
+        say(action.line)
+        break
+      case 'hold':
+        pet.snuggle(true)
+        say(action.line)
         break
       case 'huff':
         pet.huff()
@@ -360,7 +367,8 @@ async function ensurePet() {
     getWindowPosition: windowPosition,
     scale: windowScale,
     moveWindowTo,
-    onPoke: () => act(mood.poke(Date.now())),
+    onPoke: ({ x, y }) => act(mood.poke(Date.now(), pet.zoneAt(x, y))),
+    onHold: down => (down ? act(mood.hold(Date.now())) : pet.snuggle(false)),
     onPress: down => (down ? hit.hold() : hit.release()),
     onDrag: (phase, x, y) => {
       if (phase === 'start') {
@@ -374,6 +382,10 @@ async function ensurePet() {
     },
   })
   wireResizing()
+  // For the dev pages only (never in a release): lets the console ask her things, e.g. __pet.zoneAt(x, y).
+  if (import.meta.env.DEV) {
+    window.__pet = pet
+  }
   return pet
 }
 
@@ -591,6 +603,7 @@ async function start() {
   await onLinesChange(() => loadLines())
   await onProblem(message => say(`⚠️ ${message}`, { talk: false }))
   await onAgent(state => act(mood.agent(state, Date.now())))
+  await onWoke(seconds => mood.slept(seconds * 1000))
 
   applyLanguage(await appLanguage().catch(() => 'en'))
   reminders.setBreakEvery(await breakEvery().catch(() => 0), Date.now())

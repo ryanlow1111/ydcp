@@ -1,7 +1,8 @@
 // The companion: draws a VRM model with three.js and keeps her alive, calmly: a gentle idle
 // loop, eyes that watch the cursor move and then come back to you (gaze.js), faces and blinks.
-// Dragged, she hangs from your hand and swings (carry.js). Cute moments (built in, or from
-// .vrma files) only happen when asked: a click, the menu, a greeting, an agent finishing.
+// Dragged, she hangs from your hand and swings (carry.js). She feels where she's poked, held
+// and stared at (touch.js). Cute moments (built in, or from .vrma files) only happen when
+// asked: a click, the menu, a greeting, an agent finishing.
 // Vibes → Auto (drift) brings back the livelier rhythm for those who want it.
 // Everything here runs on the user's computer; nothing is fetched from the internet.
 
@@ -13,7 +14,8 @@ import { defaultBody, measureBody } from './body.js'
 import { createCarry } from './carry.js'
 import { createGaze } from './gaze.js'
 import { makeCarried, makeLoops, VIBES } from './moves.js'
-import { MOMENTS, MOMENT_IDS, makeMoments } from './moments.js'
+import { MOMENTS, MOMENT_IDS, makeMirrored, makeMoments } from './moments.js'
+import { createCursorPlay, zoneOf } from './touch.js'
 import { applyTrim, clearArms } from './fixes.js'
 // `text` (not `t`): in this file `t` is the animation clock.
 import { lines, t as text } from './i18n.js'
@@ -40,6 +42,12 @@ const talkSeconds = line => Math.min(4, Math.max(0.6, line.length * 0.055))
 const HUFF_S = 2.8
 /** Held up, she's lifted by this much of her height. */
 const CARRY_LIFT = 0.025
+/** A flinch (a poke on the face, a cursor rushing at it) lasts this long. */
+const FLINCH_S = 0.55
+/** A clap on her raised hand: how long the knock takes to die away, and when she lowers it. */
+const CLAP_S = 0.5
+const CLAP_LOWER_S = 0.45
+const AXIS_X = new THREE.Vector3(1, 0, 0)
 
 /** Loads `.vrma` bytes into a VRM animation (independent of any model). */
 export async function parseMotion(bytes) {
@@ -86,6 +94,8 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
   /** Where she looks (the moving cursor, you, a glance away), and how she hangs when carried. */
   const attention = createGaze()
   const carrying = createCarry()
+  /** The cursor around her face: rushing at it, or resting on it (a stare). */
+  const play = createCursorPlay()
 
   /**
    * The cursor is at window-local (x, y) logical pixels, possibly far outside the window.
@@ -94,8 +104,13 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
    */
   function lookAt(x, y) {
     const clamp = value => Math.max(-1, Math.min(1, value))
-    attention.cursor(timer.getElapsed(), x, y, clamp((x - innerWidth / 2) / (innerWidth * 1.5)), clamp((y - innerHeight * 0.3) / innerHeight))
+    const t = timer.getElapsed()
+    attention.cursor(t, x, y, clamp((x - innerWidth / 2) / (innerWidth * 1.5)), clamp((y - innerHeight * 0.3) / innerHeight))
     feelPat(x, y)
+    const rushed = play.cursor(t, x, y, asleep || carrying.held ? null : faceCircle())
+    if (rushed) {
+      flinch(t, rushed.split(':')[1])
+    }
   }
 
   // ---- Head pats: the cursor stroking back and forth over her head (no click needed) ------
@@ -104,19 +119,51 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
   const headPoint = new THREE.Vector3()
   const headEdge = new THREE.Vector3()
 
-  /** Her head on screen (window pixels): a circle over the top of her face. */
-  function headCircle() {
+  /** A world point on screen, in window pixels. */
+  const onScreen = point => {
+    point.project(camera)
+    return { x: ((point.x + 1) / 2) * innerWidth, y: ((1 - point.y) / 2) * innerHeight }
+  }
+
+  /** A circle on screen (window pixels) around the point `y` up her centre line, `r` across. */
+  function circleAt(y, r) {
     if (!vrm) {
       return null
     }
-    const { eyeY, halfWidth } = figure.face
-    const toScreen = point => {
-      vrm.scene.localToWorld(point).project(camera)
-      return { x: ((point.x + 1) / 2) * innerWidth, y: ((1 - point.y) / 2) * innerHeight }
-    }
-    const centre = toScreen(headPoint.set(0, eyeY + halfWidth * 0.7, 0))
-    const edge = toScreen(headEdge.set(halfWidth * 1.6, eyeY + halfWidth * 0.7, 0))
+    const centre = onScreen(vrm.scene.localToWorld(headPoint.set(0, y, 0)))
+    const edge = onScreen(vrm.scene.localToWorld(headEdge.set(r, y, 0)))
     return { ...centre, r: Math.abs(edge.x - centre.x) }
+  }
+
+  /** Her head on screen: a circle over the top of her face (where pats land). */
+  const headCircle = () => circleAt(figure.face.eyeY + figure.face.halfWidth * 0.7, figure.face.halfWidth * 1.6)
+
+  /** Her whole face and head on screen: chin to crown. */
+  const faceCircle = () => circleAt(figure.face.eyeY + figure.face.halfWidth * 0.3, figure.face.halfWidth * 1.9)
+
+  /** One of her hands on screen, where it is right now. */
+  function handCircle(side) {
+    const hand = vrm?.humanoid.getRawBoneNode(`${side}MiddleProximal`) ?? vrm?.humanoid.getRawBoneNode(`${side}Hand`)
+    if (!hand) {
+      return null
+    }
+    const centre = onScreen(hand.getWorldPosition(headPoint))
+    const edge = onScreen(hand.getWorldPosition(headEdge).add(handReach.set(figure.hand * 0.85, 0, 0)))
+    return { ...centre, r: Math.max(12, Math.abs(edge.x - centre.x)) }
+  }
+  const handReach = new THREE.Vector3()
+
+  /** The high five she does with her `side` hand. */
+  const highFive = side => moments[side === 'left' ? 'highfive:left' : 'highfive']
+
+  /**
+   * What a poke at window (x, y) lands on: 'body', 'face:left', 'hand:right'… (touch.js). A
+   * hand she's holding up for a high five is 'clap:right' or 'clap:left': touching it is the clap.
+   */
+  function zoneAt(x, y) {
+    const zone = zoneOf({ x, y }, { face: faceCircle(), hands: { right: handCircle('right'), left: handCircle('left') } })
+    const [part, side] = zone.split(':')
+    return part === 'hand' && oneOff !== null && oneOff === highFive(side)?.action ? `clap:${side}` : zone
   }
 
   /** Counts the cursor's turns over her head: three within 1.5 s is a pat. */
@@ -140,6 +187,7 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     }
     pat.turns = pat.turns.filter(at => t - at < 1.5)
     if (pat.turns.length >= 3) {
+      play.touched(t)
       // A pat makes up for too many pokes.
       if (t < huffUntil) {
         huffUntil = t
@@ -377,23 +425,26 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     for (const [name, clip] of Object.entries(makeLoops(vrm, vrm0, figure))) {
       loops[name] = mixer.clipAction(clip)
     }
+    // Built-in moments' names and lines follow the language, even if it changes later.
+    const builtIn = (id, as, clip, random) => ({
+      id,
+      face: MOMENTS[as].face,
+      get name() {
+        return text(`moment.${as}`)
+      },
+      // Her line for this moment, or one of the user's own lines for it (docs/lines.md).
+      get line() {
+        const options = lines(`moment.${as}.line`)
+        return options[Math.floor(Math.random() * options.length)] ?? null
+      },
+      random,
+      action: mixer.clipAction(clip),
+    })
     for (const [id, clip] of Object.entries(makeMoments(vrm, vrm0, figure))) {
-      // Built-in moments' names and lines follow the language, even if it changes later.
-      moments[id] = {
-        id,
-        face: MOMENTS[id].face,
-        get name() {
-          return text(`moment.${id}`)
-        },
-        // Her line for this moment, or one of the user's own lines for it (docs/lines.md).
-        get line() {
-          const options = lines(`moment.${id}.line`)
-          return options[Math.floor(Math.random() * options.length)] ?? null
-        },
-        random: true,
-        action: mixer.clipAction(clip),
-      }
+      moments[id] = builtIn(id, id, clip, true)
     }
+    // The high five with her other hand, for a tap on that one (not in the menu).
+    moments['highfive:left'] = builtIn('highfive:left', 'highfive', makeMirrored(vrm, vrm0, figure, 'highfive'), false)
     carried = mixer.clipAction(makeCarried(vrm, vrm0, figure))
     buildLibrary()
     setBase(vibeChoice === 'auto' || !loops[vibeChoice] ? 'sway' : vibeChoice)
@@ -441,6 +492,16 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
   let pokeMomentAt = -Infinity
   let huffUntil = -Infinity
   let carriedAt = -Infinity
+  /** Held with a still press: she leans into it, as for a pat. */
+  let snuggling = false
+  /** A flinch: when it began, and the side it came from as you see her (-1 left, 1 right). */
+  let flinchAt = -Infinity
+  let flinchFrom = 1
+  /** A clap on the hand she holds up: when, which hand, and when she lowers it afterwards. */
+  let clapAt = -Infinity
+  let clapSide = 'right'
+  let lowerHandAt = Infinity
+  const parentTurn = new THREE.Quaternion()
 
   /** Plays a moment once over her vibe, then fades back. Says its line unless `quiet`. */
   function playMoment(id, { quiet = false } = {}) {
@@ -448,13 +509,20 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     if (!moment || !mixer) {
       return false
     }
-    if (oneOff && oneOff !== moment.action) {
+    // Asked for again while it plays: it starts over where she stands. Fading it in again
+    // would leave her with no motion at all for a moment (her T-pose).
+    const again = oneOff === moment.action
+    if (oneOff && !again) {
       oneOff.fadeOut(0.3)
     }
     moment.action.reset().setLoop(THREE.LoopOnce, 1)
     moment.action.clampWhenFinished = true
-    moment.action.setEffectiveWeight(1).fadeIn(0.4).play()
-    under()?.fadeOut(0.4)
+    moment.action.setEffectiveWeight(1)
+    if (!again) {
+      moment.action.fadeIn(0.4)
+      under()?.fadeOut(0.4)
+    }
+    moment.action.play()
     oneOff = moment.action
     momentFace = moment.face
     lastMoment = id
@@ -487,6 +555,7 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     }
     asleep = sleep
     if (asleep) {
+      snuggling = false
       endMoment()
       setBase('sleepy')
     } else {
@@ -588,11 +657,60 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
   /** The model's blink, which every model's blinking and dozing use. */
   const blinkName = () => faceFor('blink')
 
-  /** A poke: a moment of surprise, then a cute moment. */
-  function poke() {
+  /**
+   * A poke on `zone` (see zoneAt). On a hand: she holds that hand up for a high five; on the
+   * hand she's holding up: the clap. On her face: a flinch and a look of surprise. Anywhere
+   * else: a moment of surprise, then a cute moment.
+   */
+  function poke(zone = 'body') {
     const t = timer.getElapsed()
+    const [part, side] = zone.split(':')
+    play.touched(t)
+    if (part === 'clap') {
+      // Your hand meets hers: a knock she rides out, a blink, and then she lowers her hand.
+      clapAt = t
+      clapSide = side
+      lowerHandAt = t + CLAP_LOWER_S
+      blinkEnd = Math.max(blinkEnd, t + 0.12)
+      return
+    }
+    if (part === 'hand' && playMoment(highFive(side)?.id)) {
+      lowerHandAt = Infinity
+      return
+    }
     pokedAt = t
-    pokeMomentAt = t + 0.35
+    if (part === 'face') {
+      flinch(t, side)
+    } else {
+      pokeMomentAt = t + 0.35
+    }
+  }
+
+  /**
+   * Tips normalized bone `name` away from you by `angle` radians (about the screen's
+   * left-to-right axis), whichever way her arm happens to be turned.
+   */
+  function tipBack(name, angle) {
+    const node = vrm.humanoid.getNormalizedBoneNode(name)
+    if (node?.parent) {
+      node.parent.getWorldQuaternion(parentTurn)
+      node.quaternion.premultiply(parentTurn).premultiply(extra.setFromAxisAngle(AXIS_X, -angle)).premultiply(parentTurn.invert())
+    }
+  }
+
+  /** A flinch away from `side` ('left' or 'right', as you see her): eyes shut, head back. */
+  function flinch(t, side) {
+    flinchAt = t
+    flinchFrom = side === 'left' ? -1 : 1
+    blinkEnd = Math.max(blinkEnd, t + 0.22)
+  }
+
+  /** Held with a still press (or let go): she leans into it like a pat. Not while she dozes. */
+  function snuggle(on) {
+    snuggling = Boolean(on) && !asleep
+    if (snuggling) {
+      play.touched(timer.getElapsed())
+    }
   }
 
   /** One poke too many: no moment this time. She frowns and looks away for a bit. */
@@ -634,8 +752,14 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
   const gaze = { x: 0, y: 0 }
   /** Her eyes, which get there before her head does. */
   const eyes = { x: 0, y: 0 }
-  /** The bones the follow layer turns, each with the clip's own rotation from the last frame. */
-  const FOLLOW_BASE = new Map(['head', 'neck', 'chest'].map(name => [name, new THREE.Quaternion()]))
+  /**
+   * The bones the live layers turn (following the cursor; a clap's knock on a raised hand),
+   * each with the clip's own rotation from the last frame. The mixer only writes a bone when
+   * its clip value changes, so without this a live turn would stay and pile up.
+   */
+  const FOLLOW_BASE = new Map(
+    ['head', 'neck', 'chest', 'rightLowerArm', 'rightHand', 'leftLowerArm', 'leftHand'].map(name => [name, new THREE.Quaternion()]),
+  )
   const extra = new THREE.Quaternion()
   const tilt = new THREE.Euler()
   /** The faces this model has (from its own expressions). */
@@ -711,7 +835,7 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
       }
     }
 
-    // The follow layer starts each frame from the clip's last pose, so its turn never piles up.
+    // The live layers start each frame from the clip's last pose, so their turns never pile up.
     for (const [boneName, saved] of FOLLOW_BASE) {
       vrm.humanoid.getNormalizedBoneNode(boneName)?.quaternion.copy(saved)
     }
@@ -723,8 +847,29 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
       }
     }
 
+    // Clapped: her raised hand is knocked back by yours, springs forward a touch and settles,
+    // the forearm giving a little with it. Then she lowers her hand.
+    const sinceClap = t - clapAt
+    if (sinceClap >= 0 && sinceClap < CLAP_S) {
+      const knock = Math.exp(-sinceClap * 11) * Math.sin(sinceClap * 28)
+      tipBack(`${clapSide}LowerArm`, 0.11 * knock)
+      tipBack(`${clapSide}Hand`, 0.4 * knock)
+    }
+    if (t >= lowerHandAt) {
+      lowerHandAt = Infinity
+      if (oneOff !== null && (oneOff === highFive('right')?.action || oneOff === highFive('left')?.action)) {
+        endMoment()
+      }
+    }
+
     // Being patted: she leans into it, and looks up at the cursor less.
-    pat.amount += ((t < pat.until ? 1 : 0) - pat.amount) * Math.min(1, dt * 4)
+    pat.amount += ((t < pat.until || snuggling ? 1 : 0) - pat.amount) * Math.min(1, dt * 4)
+
+    // Stared at (the cursor resting on her face): she gets shy, if she's free to.
+    const free = !asleep && !oneOff && !carrying.held && !snuggling && t >= huffUntil && pat.amount < 0.1 && !Number.isFinite(pokeMomentAt)
+    if (play.stare(t, free)) {
+      playMoment('shy')
+    }
 
     // Head, neck and chest turn to where she's looking, eased; less during a moment or a pat.
     // Her eyes move first and faster.
@@ -760,6 +905,13 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     const pivot = figure.shoulder.right[1]
     holder.rotation.z = hang.tilt
     holder.position.set(pivot * Math.sin(hang.tilt), pivot * (1 - Math.cos(hang.tilt)) + hang.lift * figure.height * CARRY_LIFT, 0)
+    // A flinch: her head jerks back and away from what came at her, then eases home.
+    const flinching = (t - flinchAt) / FLINCH_S
+    if (head && flinching >= 0 && flinching < 1) {
+      const recoil = Math.sin(Math.PI * flinching ** 0.6) * (1 - flinching)
+      const turned = vrm0 ? -1 : 1
+      head.quaternion.multiply(extra.setFromEuler(tilt.set(-0.16 * recoil * turned, -flinchFrom * 0.26 * recoil, flinchFrom * 0.09 * recoil * turned)))
+    }
     // Dizzy from being shaken: her head rolls round.
     if (head && hang.dizzy > 0.01) {
       head.quaternion.multiply(extra.setFromEuler(tilt.set(Math.sin(t * 6) * 0.12 * hang.dizzy, 0, Math.cos(t * 6) * 0.14 * hang.dizzy)))
@@ -842,6 +994,8 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     setOutfit,
     toggleOutfit,
     poke,
+    zoneAt,
+    snuggle,
     huff,
     pickUp,
     carry,

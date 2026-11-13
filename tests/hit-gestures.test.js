@@ -65,10 +65,13 @@ describe('click-through', () => {
 })
 
 describe('gestures', () => {
-  test('a quick still press is a poke; a moving press is a drag; a long still press is nothing', () => {
+  test('a quick still press is a poke; a moving press is a drag; a long still press is a hold', () => {
     expect(classifyPress({ moved: false, ms: 120 })).toBe('poke')
     expect(classifyPress({ moved: true, ms: 120 })).toBe('drag')
-    expect(classifyPress({ moved: false, ms: 900 })).toBe('none')
+    expect(classifyPress({ moved: true, ms: 900 })).toBe('drag')
+    expect(classifyPress({ moved: false, ms: 900 })).toBe('hold')
+    // Too slow for a poke, too short for a hold: nothing.
+    expect(classifyPress({ moved: false, ms: 350 })).toBe('none')
   })
 
   test('small wobbles stay a poke', () => {

@@ -1,5 +1,5 @@
-// Pressing on her: a quick click pokes her; pressing and moving drags her around (and she
-// feels it: see carry.js).
+// Pressing on her: a quick click pokes her; pressing and holding still is a hold (she snuggles
+// in); pressing and moving drags her around (and she feels it: see carry.js).
 //
 // Dragging moves the window with the pointer's screen position, so it works the same on macOS
 // and Windows and never needs the OS's own window-drag (which only starts on a mouse-down).
@@ -8,13 +8,18 @@
 export const DRAG_DISTANCE = 4
 /** A press released sooner than this, without moving, is a poke. */
 export const POKE_MS = 250
+/** A press kept still for this long is a hold. */
+export const HOLD_MS = 500
 
-/** What a finished press was: 'drag', 'poke', or 'none' (a long press that didn't move). */
+/**
+ * What a finished press was: 'drag', 'poke', 'hold', or 'none' (too slow for a poke, too
+ * short for a hold).
+ */
 export function classifyPress({ moved, ms }) {
   if (moved) {
     return 'drag'
   }
-  return ms < POKE_MS ? 'poke' : 'none'
+  return ms < POKE_MS ? 'poke' : ms >= HOLD_MS ? 'hold' : 'none'
 }
 
 /** Whether the pointer has gone far enough from where the press started to start a drag. */
@@ -25,12 +30,24 @@ export function passedDragDistance(dx, dy) {
 /**
  * Wires pointer presses on `element`. `getWindowPosition()` gives the window's top-left in
  * physical pixels, `scale()` the window's scale factor, `moveWindowTo(x, y)` moves it
- * (physical pixels); `onPoke()` runs for a poke; `onPress(down)` tells whether a press is going on.
- * `onDrag(phase, x, y)` follows a drag: 'start', then 'move' with the pointer's screen position
- * (logical pixels), then 'end'.
+ * (physical pixels); `onPoke({ x, y })` runs for a poke, with where in the window it landed;
+ * `onPress(down)` tells whether a press is going on. `onDrag(phase, x, y)` follows a drag:
+ * 'start', then 'move' with the pointer's screen position (logical pixels), then 'end'.
+ * `onHold(true)` runs once a still press has lasted `HOLD_MS`, and `onHold(false)` when it's
+ * let go or turns into a drag.
  */
-export function wireGestures({ element, getWindowPosition, scale, moveWindowTo, onPoke, onPress, onDrag = () => {} }) {
+export function wireGestures({ element, getWindowPosition, scale, moveWindowTo, onPoke, onPress, onDrag = () => {}, onHold = () => {} }) {
   let press = null
+  let holdTimer = 0
+
+  /** Ends a hold, if one is going on. */
+  function letGo() {
+    clearTimeout(holdTimer)
+    if (press?.holding) {
+      press.holding = false
+      onHold(false)
+    }
+  }
   let pendingMove = null
   let moving = false
 
@@ -64,10 +81,18 @@ export function wireGestures({ element, getWindowPosition, scale, moveWindowTo, 
       startY: event.screenY,
       at: performance.now(),
       moved: false,
+      holding: false,
       origin: null,
       ratio: 1,
     }
     const current = press
+    clearTimeout(holdTimer)
+    holdTimer = setTimeout(() => {
+      if (press === current && !current.moved) {
+        current.holding = true
+        onHold(true)
+      }
+    }, HOLD_MS)
     const [origin, ratio] = await Promise.all([getWindowPosition(), scale()])
     current.origin = origin
     current.ratio = ratio
@@ -81,6 +106,7 @@ export function wireGestures({ element, getWindowPosition, scale, moveWindowTo, 
     const dy = event.screenY - press.startY
     if (!press.moved && passedDragDistance(dx, dy)) {
       press.moved = true
+      letGo()
       onDrag('start', event.screenX, event.screenY)
     }
     if (press.moved) {
@@ -100,6 +126,7 @@ export function wireGestures({ element, getWindowPosition, scale, moveWindowTo, 
       return
     }
     const kind = classifyPress({ moved: press.moved, ms: performance.now() - press.at })
+    letGo()
     press = null
     element.releasePointerCapture?.(event.pointerId)
     onPress(false)
@@ -107,7 +134,7 @@ export function wireGestures({ element, getWindowPosition, scale, moveWindowTo, 
       onDrag('end', event.screenX, event.screenY)
     }
     if (kind === 'poke') {
-      onPoke()
+      onPoke({ x: event.clientX, y: event.clientY })
     }
   }
   element.addEventListener('pointerup', finish)

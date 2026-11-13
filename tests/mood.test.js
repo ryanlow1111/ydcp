@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { setCustomLines } from '../src/i18n.js'
 import { customLines } from '../src/library.js'
-import { MUSE_MAX_MS, POKE_STREAK, POKE_STREAK_MS, SLEEP_AFTER_MS, SULK_MS, createMood, timeOfDayLine } from '../src/mood.js'
+import { BACK_AFTER_MS, HELD_LINE_EVERY_MS, MUSE_MAX_MS, POKE_STREAK, POKE_STREAK_MS, SLEEP_AFTER_MS, SULK_MS, createMood, timeOfDayLine } from '../src/mood.js'
 
 const kinds = actions => actions.map(action => action.do)
 /** A mood at noon-ish (no special time line) with predictable picks. */
@@ -54,7 +54,7 @@ describe('pokes', () => {
   test('a poke is a poke; a poke while she dozes just wakes her', () => {
     const mood = make()
     mood.start(0)
-    expect(mood.poke(1000)).toEqual([{ do: 'poke' }])
+    expect(mood.poke(1000)).toEqual([{ do: 'poke', zone: 'body', line: null }])
     mood.tick(1000 + SLEEP_AFTER_MS)
     expect(kinds(mood.poke(2000 + SLEEP_AFTER_MS))).toEqual(['wake'])
     expect(mood.asleep).toBe(false)
@@ -85,6 +85,87 @@ describe('pokes', () => {
     mood.start(0)
     mood.poke(SLEEP_AFTER_MS - 1)
     expect(kinds(mood.tick(SLEEP_AFTER_MS + 1000))).not.toContain('sleep')
+  })
+})
+
+describe('where she is poked, and being held', () => {
+  test('a poke passes on where it landed; one on the face often gets a word', () => {
+    const mood = make()
+    mood.start(0)
+    expect(mood.poke(1000, 'hand:left')).toEqual([{ do: 'poke', zone: 'hand:left', line: null }])
+    expect(mood.poke(9000, 'face:right')).toEqual([{ do: 'poke', zone: 'face:right', line: 'Puni?' }])
+    const quiet = createMood({ now: 0, random: () => 0.99, hourAt: () => 15 })
+    quiet.start(0)
+    expect(quiet.poke(1000, 'face:right')).toEqual([{ do: 'poke', zone: 'face:right', line: null }])
+  })
+
+  test('clapping the hand she holds up never counts as one poke too many', () => {
+    const mood = make()
+    mood.start(0)
+    for (let i = 0; i < POKE_STREAK * 2; i++) {
+      expect(mood.poke(1000 + i * 200, 'clap:right')).toEqual([{ do: 'poke', zone: 'clap:right', line: null }])
+    }
+    expect(kinds(mood.poke(4000))).toEqual(['poke'])
+  })
+
+  test('held, she snuggles in, with a word only now and then', () => {
+    const mood = make()
+    mood.start(0)
+    expect(mood.hold(1000)).toEqual([{ do: 'hold', line: 'Ehehe… warm~' }])
+    expect(mood.hold(5000)).toEqual([{ do: 'hold', line: null }])
+    expect(mood.hold(1000 + HELD_LINE_EVERY_MS)).toEqual([{ do: 'hold', line: 'Ehehe… warm~' }])
+  })
+
+  test('a hold wakes her if she dozed, and does nothing while she pouts', () => {
+    const mood = make()
+    mood.start(0)
+    mood.tick(SLEEP_AFTER_MS)
+    expect(kinds(mood.hold(SLEEP_AFTER_MS + 1000))).toEqual(['wake'])
+    const from = SLEEP_AFTER_MS + 10_000
+    for (let i = 0; i < POKE_STREAK; i++) {
+      mood.poke(from + i * 300)
+    }
+    expect(mood.hold(from + POKE_STREAK * 300)).toEqual([])
+  })
+})
+
+describe('back after the computer slept', () => {
+  test('she welcomes you back at the next sign of you, not before', () => {
+    const mood = make()
+    mood.start(0)
+    mood.slept(BACK_AFTER_MS)
+    expect(mood.tick(1000)).toEqual([])
+    expect(mood.activity(2000)).toEqual([{ do: 'wake', line: 'Oh, you’re back! ✨', linger: true }])
+    expect(mood.activity(3000)).toEqual([])
+  })
+
+  test('a short nap of the computer is not worth a word', () => {
+    const mood = make()
+    mood.start(0)
+    mood.slept(BACK_AFTER_MS - 1)
+    expect(mood.activity(2000)).toEqual([])
+  })
+
+  test('in the morning it is a good morning; if she had dozed off, a sleepier hello', () => {
+    // She appeared in the afternoon; you open the computer again the next morning.
+    const later = createMood({ now: 0, random: () => 0, hourAt: time => (time > 1000 ? 8 : 15) })
+    later.start(0)
+    later.slept(8 * 60 * 60 * 1000)
+    expect(later.activity(2000)).toEqual([{ do: 'wake', line: 'Good morning~ ☀️', linger: true }])
+
+    const dozed = make()
+    dozed.start(0)
+    dozed.tick(SLEEP_AFTER_MS)
+    dozed.slept(BACK_AFTER_MS)
+    expect(dozed.activity(SLEEP_AFTER_MS + 1000)).toEqual([{ do: 'wake', line: 'Mm? Oh! Welcome back~', linger: true }])
+    expect(dozed.asleep).toBe(false)
+  })
+
+  test('before she has appeared, there is nobody to welcome', () => {
+    const mood = make()
+    mood.slept(BACK_AFTER_MS * 2)
+    expect(kinds(mood.start(1000))).toEqual(['greet'])
+    expect(mood.activity(2000)).toEqual([])
   })
 })
 

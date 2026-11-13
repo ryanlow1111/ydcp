@@ -7,7 +7,7 @@
 // Each moment is a whole-body clip; the mixer fades it in over her vibe and back out.
 
 import { defaultBody, solveArm } from './body.js'
-import { RELAXED_HANDS, armsDown, bothSides, breathing, combine, curledFingers, leftOf, sampledClip, stance, wave } from './moves.js'
+import { RELAXED_HANDS, armsDown, bothSides, breathing, combine, curledFingers, leftOf, mirrorPose, sampledClip, stance, wave } from './moves.js'
 
 /** Arms from wrist targets: { upper, lower } per side, as bones. */
 const arm = (side, body, target, pole) => {
@@ -93,6 +93,31 @@ export const MOMENTS = {
       )
     },
   },
+  highfive: {
+    face: 'happy',
+    duration: 2.6,
+    pose: (t, body) => {
+      const { height, upperArm } = body
+      const [x, y, z] = body.shoulder.right
+      // She holds her open hand up beside her shoulder, forearm upright, palm toward you, and
+      // waits for your clap. The knock when it comes is added live (pet.js): it depends on
+      // when you clap, so it can't be part of the clip.
+      const bob = wave(t, 1.3) * height * 0.003
+      return combine(
+        breathing(t),
+        stance(0.8, -1),
+        { leftUpperArm: armsDown(body, t).leftUpperArm, leftLowerArm: armsDown(body, t).leftLowerArm },
+        arm('right', body, [x - upperArm * 0.75, y + upperArm * 0.45 + bob, z + upperArm * 0.3], [-1, -0.6, 0.3]),
+        leftOf(curledFingers({})),
+        curledFingers({ index: 0.02, middle: 0.02, ring: 0.03, little: 0.05, thumb: 0 }),
+        {
+          chest: [0, 0.04, 0.005],
+          neck: [0, 0, 0.02],
+          head: [0, 0.04, 0.05],
+        },
+      )
+    },
+  },
 }
 
 /** The built-in moments' ids, in menu order. */
@@ -106,4 +131,10 @@ export function makeMoments(vrm, vrm0 = false, body = defaultBody(), ids = MOMEN
     clips[id] = sampledClip(vrm, id, moment.duration, t => moment.pose(t, body), vrm0)
   }
   return clips
+}
+
+/** Built-in moment `id` done with her other hand: the same clip in a mirror, named `<id>:left`. */
+export function makeMirrored(vrm, vrm0 = false, body = defaultBody(), id) {
+  const moment = MOMENTS[id]
+  return sampledClip(vrm, `${id}:left`, moment.duration, t => mirrorPose(moment.pose(t, body)), vrm0)
 }
