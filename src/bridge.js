@@ -31,6 +31,15 @@ export const readMotions = () => invoke('read_motions')
 /** The chosen frame rate (60 or 30). */
 export const frameRate = () => invoke('frame_rate')
 
+/** Menu → Chattiness: 'quiet', 'calm' or 'chatty'. */
+export const chattiness = () => invoke('chattiness')
+
+/** What she remembers between launches: { lastDay, streak } or null (memory.js). */
+export const memory = () => invoke('memory')
+
+/** Saves what she remembers. */
+export const remember = remembered => invoke('remember', { memory: remembered })
+
 /** The user's own lines, `~/.ydcp/lines.json`, as text or null. */
 export const readLines = () => invoke('read_lines')
 

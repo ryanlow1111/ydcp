@@ -12,15 +12,23 @@ All notable changes to YDCP are listed here. The format follows [Keep a Changelo
 - She feels where you click her: a click on her face makes her flinch (and often say something), a click on a hand makes her hold that hand up for a high five (click the raised hand to clap it: it's knocked back a little and springs home), and anywhere else is a poke as before.
 - High five: a new built-in moment, also in Menu → Motions.
 - Press and hold her for half a second and she leans into it, as for a head pat, until you let go.
-- Cursor play, no click needed: rush the cursor at her face and she flinches; leave it resting on her face for three seconds and she gets shy.
+- Cursor play, no click needed: rush the cursor at her face and she flinches; leave it resting on her face for three seconds and she gets shy; wiggle it beside her and she tilts her head toward it, curious (your own lines: `curious`).
 - She welcomes you back when you open the computer after it slept for five minutes or more, with a good morning if it's morning.
 - Your own lines for all of these: `annoyed`, `dizzy`, `face`, `held`, `back` and `highfive` in `lines.json` or a profile. See [docs/lines.md](docs/lines.md).
 
+- She remembers the last day she saw you. The first time each day she may have a word for it: a run of days in a row (3, 7, 14, 30…), three or more days apart ("It's been 7 days!"), the weekend, or your birthday if you add `"birthday": "11-13"` to `lines.json`. Only the day and the run of days are kept, in `settings.json`.
+- After the computer slept an hour or more, her welcome back says for how long.
+- Your own lines for these: `birthday`, `missed`, `streak`, `weekend` and `backLong`, with `{n}` and `{span}` filled in for you.
+- Menu → Chattiness: Quiet, Calm or Chatty. On Quiet she only answers you (a poke, a pat, a menu pick) and gives the reminders and agent news you asked for; her greetings and musings stay unsaid, though she still waves.
+
 ### Changed
+- Calmer by default: her own musings now come at most every five minutes (Chattiness → Calm). Pick Chatty for the old pace of every minute or two.
+- She takes turns with herself. A musing never replaces a reminder or anything else still in her bubble, she keeps her own ideas to herself for 20 seconds after you touch her, and a line that had to wait too long is dropped instead of said late.
 - Typing counts as being there. She used to doze off after 10 minutes without the mouse moving, even mid-sentence, and a break reminder was put off the same way. YDCP now asks the system how long ago the keyboard or mouse was last touched: one number, never which keys, and no permission needed.
 
 ### Fixed
 - Picking a moment again while it's still playing no longer shows her T-pose for an instant.
+- She no longer plays a random moment by herself the instant she appears (her greeting used to hide it).
 - Hands held together (Sway, Bop, Sleepy) no longer pass through each other: they hang relaxed, her right resting just in front of her left, spaced to fit each model's hands.
 - Picking **Sleepy** yourself keeps the full frame rate. She only slows down to save power when she dozes off because you're away.
 

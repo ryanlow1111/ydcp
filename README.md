@@ -176,10 +176,12 @@ YDCP only reads your model from your own computer. It never uploads, shares or m
 | Pat her head | Move the cursor gently back and forth over her head (no click); she smiles and leans in |
 | Click the app behind her | Just click; empty space is click-through |
 | Change size | Pinch on a trackpad, or hold **⌘** (Mac) / **Ctrl** (Windows) and scroll, over her. Or Menu → **Size** → Small / Medium / Large |
+| How much she talks | Menu → **Chattiness** → Quiet (she only answers you and gives the reminders you set), Calm (the default: something of her own every five minutes at most) or Chatty (every minute or two) |
 | Break reminders | Menu → **Reminders → Break reminder** → every 30–90 minutes of work. Time away from the computer counts as a break |
 | Timer | Menu → **Reminders → Timer** → 5–60 minutes; she waves and tells you when time's up |
 | Start with your computer | Menu → **Start at login** (Mac: move YDCP to Applications first) |
 | Change language | Menu → **Language** → English, 日本語, 简体中文 or 繁體中文. **Automatic** follows your system |
+| Tell her your birthday | Add `"birthday": "11-13"` (month-day) to `~/.ydcp/lines.json`; she wishes you a happy birthday that day. See [docs/lines.md](docs/lines.md#your-birthday) |
 | Change what she says | Add your own lines, or replace hers, for every model (`~/.ydcp/lines.json`) or one character (her profile). See [docs/lines.md](docs/lines.md) |
 | Pick a motion | Menu → **Motions** → a moment, a vibe, or an expression |
 | Put on a hat, glasses… | Menu → **Outfit** (only for models that have outfit parts; any number at once, with any expression) |
@@ -188,9 +190,11 @@ YDCP only reads your model from your own computer. It never uploads, shares or m
 | Save power on a laptop | Menu → **Frame rate** → 30 fps |
 | Hide / show | Menu → **Show / Hide** |
 
-She watches the cursor while it moves, then looks back at you, with a glance away now and then. Rush the cursor at her face and she flinches; leave it resting on her face for a few seconds and she gets shy.
+She watches the cursor while it moves, then looks back at you, with a glance away now and then. Rush the cursor at her face and she flinches; leave it resting on her face for a few seconds and she gets shy; wiggle it beside her and she tilts her head, curious.
 
-When you open your computer again after it slept for five minutes or more, she welcomes you back.
+When you open your computer again after it slept for five minutes or more, she welcomes you back, and after an hour or more she says how long it's been.
+
+She remembers the last day she saw you. The first time each day she may have a word for it: a run of days together (3, 7, 14, 30…), three or more days apart, the weekend, or your birthday.
 
 When you leave the keyboard and mouse alone for about 10 minutes she gets sleepy, and she wakes up when you're back. Typing counts as being there, even if the mouse doesn't move.
 
@@ -277,7 +281,7 @@ Everything YDCP uses is in one folder: `~/.ydcp/` (Windows: `%USERPROFILE%\.ydcp
 ├── models/        your .vrm files (+ optional profiles)
 ├── anims/         your .vrma files (+ optional motions.json)
 ├── lines.json     optional: your own lines for her (docs/lines.md)
-├── settings.json  your choices: model, size, position, outfits, reminders, agent link
+├── settings.json  your choices: model, size, position, outfits, reminders, agent link; and the last day she saw you
 └── state.json     only if an AI agent or script writes it
 ```
 
@@ -308,7 +312,8 @@ The `.json` files above are plain text files that you can open in any text edito
 - **No internet use while running.** No auto-update checks. Links (such as the Releases page) open in your browser only when you click them.
 - No open network ports. The AI agent link is a local file.
 - **No special permissions:** no screen recording, accessibility, input monitoring, camera or microphone.
-- **What she knows about you:** where the cursor is, and how many seconds ago the keyboard or mouse was last touched (one number from the system, so she knows you're there). Never which keys, what you typed, or which app you're in. Nothing is stored.
+- **What she knows about you:** where the cursor is, and how many seconds ago the keyboard or mouse was last touched (one number from the system, so she knows you're there). Never which keys, what you typed, or which app you're in.
+- **What she remembers:** two things, in `settings.json`: the last day she saw you, and how many days in a row. Your birthday is only read from `lines.json` if you wrote it there.
 - YDCP reads and writes only its own `.ydcp` folder, plus `.vrm` files you choose to open. The one exception is **Start at login**, which only when you turn it on adds a standard login entry (Mac: `~/Library/LaunchAgents/YDCP.plist`; Windows: the usual "Run" entry in your user registry).
 - The only time anything is downloaded is on Windows if WebView2 is missing during install, from Microsoft.
 

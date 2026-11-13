@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { FLINCH_SPEED, STARE_AGAIN_S, STARE_S, createCursorPlay, zoneOf } from '../src/touch.js'
+import { FLINCH_SPEED, STARE_AGAIN_S, STARE_S, WIGGLE_TURNS, createCursorPlay, zoneOf } from '../src/touch.js'
 
 const face = { x: 160, y: 120, r: 40 }
 const hands = { right: { x: 90, y: 300, r: 15 }, left: { x: 230, y: 300, r: 15 } }
@@ -78,6 +78,40 @@ describe('the cursor around her face', () => {
     expect(play.stare(STARE_S, false)).toBe(false)
     expect(play.stare(STARE_S + 1, true)).toBe(false)
     expect(play.stare(STARE_S * 2, true)).toBe(true)
+  })
+
+  /** Wiggles the cursor about (cx, cy), 30 px each way, turning every 0.1 s; returns what each report brought. */
+  const wiggle = (play, cx, cy, from = 0, reports = 16, where = face) =>
+    Array.from({ length: reports }, (_, i) => play.cursor(from + i * 0.1, cx + (i % 2 === 0 ? -30 : 30), cy, where))
+
+  test('a cursor wiggled beside her makes her curious, on the side it is on', () => {
+    const play = createCursorPlay()
+    const left = wiggle(play, 60, 200)
+    // Not at once: it takes a few turns.
+    expect(left.slice(0, WIGGLE_TURNS).every(event => event === null)).toBe(true)
+    expect(left.at(-1)).toBe('curious:left')
+    expect(wiggle(createCursorPlay(), 270, 200).at(-1)).toBe('curious:right')
+  })
+
+  test('she stays curious while the wiggle goes on, and stops when it stops', () => {
+    const play = createCursorPlay()
+    const events = wiggle(play, 60, 200)
+    const first = events.indexOf('curious:left')
+    expect(events.slice(first).every(event => event === 'curious:left')).toBe(true)
+    // The cursor comes to rest: a couple of seconds later it's forgotten.
+    expect(play.cursor(4, 60, 200, face)).toBeNull()
+  })
+
+  test('a slow drift, a single pass, a wiggle on her face or far away: not curious', () => {
+    const slow = createCursorPlay()
+    expect(Array.from({ length: 10 }, (_, i) => slow.cursor(i, 60 + (i % 2 === 0 ? -30 : 30), 200, face)).some(Boolean)).toBe(false)
+    const pass = createCursorPlay()
+    expect(Array.from({ length: 20 }, (_, i) => pass.cursor(i * 0.05, 20 + i * 12, 200, face)).some(Boolean)).toBe(false)
+    // On her face it's a pat or a stare, not a wiggle.
+    expect(wiggle(createCursorPlay(), 160, 120).some(event => event?.startsWith('curious'))).toBe(false)
+    expect(wiggle(createCursorPlay(), 900, 200).some(Boolean)).toBe(false)
+    // While she can't react (asleep, carried): nothing.
+    expect(wiggle(createCursorPlay(), 60, 200, 0, 16, null).some(Boolean)).toBe(false)
   })
 
   test('a cursor elsewhere is never a stare', () => {

@@ -44,6 +44,9 @@ const HUFF_S = 2.8
 const CARRY_LIFT = 0.025
 /** A flinch (a poke on the face, a cursor rushing at it) lasts this long. */
 const FLINCH_S = 0.55
+/** A wiggle near her: she stays curious this long after it stops, and speaks at most this often. */
+const CURIOUS_S = 1.2
+const CURIOUS_LINE_EVERY_S = 60
 /** A clap on her raised hand: how long the knock takes to die away, and when she lowers it. */
 const CLAP_S = 0.5
 const CLAP_LOWER_S = 0.45
@@ -107,11 +110,23 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     const t = timer.getElapsed()
     attention.cursor(t, x, y, clamp((x - innerWidth / 2) / (innerWidth * 1.5)), clamp((y - innerHeight * 0.3) / innerHeight))
     feelPat(x, y)
-    const rushed = play.cursor(t, x, y, asleep || carrying.held ? null : faceCircle())
-    if (rushed) {
-      flinch(t, rushed.split(':')[1])
+    const [what, side] = play.cursor(t, x, y, asleep || carrying.held ? null : faceCircle())?.split(':') ?? []
+    if (what === 'flinch') {
+      flinch(t, side)
+    } else if (what === 'curious' && idle(t)) {
+      // Wiggled at: her head tilts toward it, and now and then she asks.
+      curious.until = t + CURIOUS_S
+      curious.side = side === 'left' ? -1 : 1
+      if (curious.amount < 0.05 && t - curious.saidAt > CURIOUS_LINE_EVERY_S && Math.random() < 0.5) {
+        curious.saidAt = t
+        const asks = lines('lines.curious')
+        onSay(asks[Math.floor(Math.random() * asks.length)])
+      }
     }
   }
+
+  /** Curious about a wiggling cursor: until when, which side it's on (-1 left, 1 right), how much. */
+  const curious = { until: -Infinity, side: 1, amount: 0, saidAt: -Infinity }
 
   // ---- Head pats: the cursor stroking back and forth over her head (no click needed) ------
 
@@ -489,7 +504,8 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
   let lastMoment = null
   let pokedAt = -Infinity
   let asleep = false
-  let pokeMomentAt = -Infinity
+  /** When a poke's moment is due; Infinity while none is (so nothing plays by itself at launch). */
+  let pokeMomentAt = Infinity
   let huffUntil = -Infinity
   let carriedAt = -Infinity
   /** Held with a still press: she leans into it, as for a pat. */
@@ -698,6 +714,9 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     }
   }
 
+  /** Whether she's free to react to the cursor on her own: awake, on her feet, nothing else going on. */
+  const idle = t => !asleep && !oneOff && !carrying.held && !snuggling && t >= huffUntil && pat.amount < 0.1 && !Number.isFinite(pokeMomentAt)
+
   /** A flinch away from `side` ('left' or 'right', as you see her): eyes shut, head back. */
   function flinch(t, side) {
     flinchAt = t
@@ -866,10 +885,11 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     pat.amount += ((t < pat.until || snuggling ? 1 : 0) - pat.amount) * Math.min(1, dt * 4)
 
     // Stared at (the cursor resting on her face): she gets shy, if she's free to.
-    const free = !asleep && !oneOff && !carrying.held && !snuggling && t >= huffUntil && pat.amount < 0.1 && !Number.isFinite(pokeMomentAt)
-    if (play.stare(t, free)) {
+    if (play.stare(t, idle(t))) {
       playMoment('shy')
     }
+    // Curious about a wiggling cursor: her head tips toward it.
+    curious.amount += ((t < curious.until && idle(t) ? 1 : 0) - curious.amount) * Math.min(1, dt * 6)
 
     // Head, neck and chest turn to where she's looking, eased; less during a moment or a pat.
     // Her eyes move first and faster.
@@ -905,6 +925,10 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     const pivot = figure.shoulder.right[1]
     holder.rotation.z = hang.tilt
     holder.position.set(pivot * Math.sin(hang.tilt), pivot * (1 - Math.cos(hang.tilt)) + hang.lift * figure.height * CARRY_LIFT, 0)
+    if (head && curious.amount > 0.01) {
+      const turned = vrm0 ? -1 : 1
+      head.quaternion.multiply(extra.setFromEuler(tilt.set(0.04 * curious.amount * turned, 0, -curious.side * 0.2 * curious.amount * turned)))
+    }
     // A flinch: her head jerks back and away from what came at her, then eases home.
     const flinching = (t - flinchAt) / FLINCH_S
     if (head && flinching >= 0 && flinching < 1) {

@@ -412,6 +412,17 @@ fn on_pick<R: Runtime>(app: &AppHandle<R>, pick: Pick) {
             menu::refresh(app);
             let _ = app.emit_to("main", "pick", pick);
         }
+        Pick::Chattiness(ref id) => {
+            let choice = settings::valid_chattiness(Some(id));
+            if let Ok(mut state) = app.state::<SharedMenu>().0.lock() {
+                state.chattiness = choice;
+            }
+            save_setting(app, |settings| {
+                settings.chattiness = Some(choice.to_string());
+            });
+            menu::refresh(app);
+            let _ = app.emit_to("main", "pick", Pick::Chattiness(choice.to_string()));
+        }
         Pick::OpenFolder => open_folder(app),
         Pick::Quit => app.exit(0),
     }
@@ -543,6 +554,31 @@ fn show_pet<R: Runtime>(app: AppHandle<R>) {
     menu::refresh(&app);
 }
 
+/// Menu → Chattiness: 'quiet', 'calm' or 'chatty'.
+#[tauri::command]
+fn chattiness<R: Runtime>(app: AppHandle<R>) -> &'static str {
+    app.state::<SharedMenu>()
+        .0
+        .lock()
+        .map_or(settings::DEFAULT_CHATTINESS, |state| state.chattiness)
+}
+
+/// What she remembers between launches (the last day she saw you, the run of days), if anything.
+#[tauri::command]
+fn memory<R: Runtime>(app: AppHandle<R>) -> Option<settings::Memory> {
+    settings_path(&app)
+        .map(|path| settings::load(&path))
+        .and_then(|saved| saved.memory)
+}
+
+/// Saves what she remembers, if it makes sense.
+#[tauri::command]
+fn remember<R: Runtime>(app: AppHandle<R>, memory: settings::Memory) {
+    if let Some(memory) = settings::valid_memory(memory) {
+        save_setting(&app, |settings| settings.memory = Some(memory));
+    }
+}
+
 /// The chosen frame rate.
 #[tauri::command]
 fn frame_rate<R: Runtime>(app: AppHandle<R>) -> u32 {
@@ -647,6 +683,9 @@ pub fn run() {
             pet_scale,
             set_pet_scale,
             break_every,
+            chattiness,
+            memory,
+            remember,
             set_timer_left,
             show_pet,
             saved_outfit,
@@ -690,6 +729,7 @@ pub fn run() {
             let agent_link = saved.agent_link.unwrap_or_default();
             let frame_rate = settings::valid_frame_rate(saved.frame_rate);
             let break_every = settings::valid_break_every(saved.break_every);
+            let chattiness = settings::valid_chattiness(saved.chattiness.as_deref());
             let login_blocked = login_blocked();
             let start_at_login = start_at_login(app.handle(), login_blocked);
             let language_choice = saved
@@ -710,6 +750,7 @@ pub fn run() {
                     language,
                     language_choice,
                     break_every,
+                    chattiness,
                     ..MenuState::default()
                 };
             }

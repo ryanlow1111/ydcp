@@ -1,7 +1,20 @@
 import { describe, expect, test } from 'vitest'
 import { setCustomLines } from '../src/i18n.js'
 import { customLines } from '../src/library.js'
-import { BACK_AFTER_MS, HELD_LINE_EVERY_MS, MUSE_MAX_MS, POKE_STREAK, POKE_STREAK_MS, SLEEP_AFTER_MS, SULK_MS, createMood, timeOfDayLine } from '../src/mood.js'
+import {
+  BACK_AFTER_MS,
+  BACK_LONG_MS,
+  HELD_LINE_EVERY_MS,
+  MUSE_MAX_MS,
+  POKE_STREAK,
+  POKE_STREAK_MS,
+  SLEEP_AFTER_MS,
+  SULK_MS,
+  TIME_LINE_WAIT_MS,
+  awaySpan,
+  createMood,
+  timeOfDayLine,
+} from '../src/mood.js'
 
 const kinds = actions => actions.map(action => action.do)
 /** A mood at noon-ish (no special time line) with predictable picks. */
@@ -10,7 +23,8 @@ const make = (hour = 15) => createMood({ now: 0, random: () => 0, hourAt: () => 
 describe('standalone mood (no agent needed)', () => {
   test('greets once when she first appears', () => {
     const mood = make()
-    expect(kinds(mood.start(0))).toEqual(['greet'])
+    // The first time she sees you each day, her memory is saved too.
+    expect(kinds(mood.start(0))).toEqual(['greet', 'remember'])
     expect(mood.start(10)).toEqual([])
   })
 
@@ -42,6 +56,16 @@ describe('standalone mood (no agent needed)', () => {
     mood.start(0)
     expect(kinds(mood.tick(MUSE_MAX_MS + 1))).toEqual(['say'])
     expect(mood.tick(MUSE_MAX_MS + 2)).toEqual([])
+  })
+
+  test('what she says on her own is marked as her own idea; the time of day may wait its turn', () => {
+    const mood = make()
+    mood.start(0)
+    expect(mood.tick(MUSE_MAX_MS + 1)).toEqual([{ do: 'say', line: '♪ la la la~', kind: 'own' }])
+    // She appeared in the afternoon; by the next musing it's lunch time somewhere else on the clock.
+    const lunch = createMood({ now: 0, random: () => 0, hourAt: time => (time > 1000 ? 12 : 15) })
+    lunch.start(0)
+    expect(lunch.tick(MUSE_MAX_MS + 1)).toEqual([{ do: 'say', line: 'Lunch time? 🍙', kind: 'own', wait: TIME_LINE_WAIT_MS }])
   })
 
   test('time-of-day lines', () => {
@@ -164,8 +188,87 @@ describe('back after the computer slept', () => {
   test('before she has appeared, there is nobody to welcome', () => {
     const mood = make()
     mood.slept(BACK_AFTER_MS * 2)
-    expect(kinds(mood.start(1000))).toEqual(['greet'])
+    expect(kinds(mood.start(1000))).toEqual(['greet', 'remember'])
     expect(mood.activity(2000)).toEqual([])
+  })
+})
+
+describe('what she remembers (the first time she sees you each day)', () => {
+  const HOUR = 60 * 60 * 1000
+  /** A mood whose clock starts on `start` (a local Date), at three in the afternoon unless told. */
+  const from = (start, saved, birthday) => {
+    const mood = createMood({ now: 0, random: () => 0, hourAt: () => 15, dateAt: time => new Date(start.getTime() + time) })
+    mood.setMemory(saved)
+    mood.setBirthday(birthday)
+    return mood
+  }
+  // 9 November 2026 is a Monday.
+  const monday = new Date(2026, 10, 9, 15)
+
+  test('an ordinary day: her usual greeting, and her memory moves on', () => {
+    const mood = from(monday, { lastDay: '2026-11-08', streak: 1 })
+    expect(mood.start(0)).toEqual([
+      { do: 'greet', line: 'Hi hi~ I’ll keep you company ♪' },
+      { do: 'remember', memory: { lastDay: '2026-11-09', streak: 2 } },
+    ])
+  })
+
+  test('the same day again: nothing to save', () => {
+    const mood = from(monday, { lastDay: '2026-11-09', streak: 4 })
+    expect(kinds(mood.start(0))).toEqual(['greet'])
+  })
+
+  test('a long time apart, a run of days, a weekend and your birthday each get a word', () => {
+    expect(from(monday, { lastDay: '2026-11-02', streak: 9 }).start(0)[0].line).toBe('It’s been 7 days! I missed you~')
+    expect(from(monday, { lastDay: '2026-11-08', streak: 2 }).start(0)[0].line).toBe('3 days in a row! ✨')
+    const saturday = new Date(2026, 10, 14, 15)
+    expect(from(saturday, { lastDay: '2026-11-13', streak: 1 }).start(0)[0].line).toBe('It’s the weekend~ taking it easy today?')
+    expect(from(monday, { lastDay: '2026-11-08', streak: 2 }, '11-09').start(0)[0].line).toBe('Happy birthday!! 🎂✨')
+  })
+
+  test('an occasion comes before the time of day; the time of day before a plain hello', () => {
+    const morning = createMood({ now: 0, random: () => 0, hourAt: () => 7, dateAt: time => new Date(monday.getTime() + time) })
+    morning.setMemory({ lastDay: '2026-11-02', streak: 1 })
+    expect(morning.start(0)[0].line).toBe('It’s been 7 days! I missed you~')
+    const plain = createMood({ now: 0, random: () => 0, hourAt: () => 7, dateAt: time => new Date(monday.getTime() + time) })
+    plain.setMemory({ lastDay: '2026-11-08', streak: 1 })
+    expect(plain.start(0)[0].line).toBe('Good morning~ ☀️')
+  })
+
+  test('the day can turn while she runs: waking her the next morning counts', () => {
+    const mood = from(monday, { lastDay: '2026-11-09', streak: 2 })
+    mood.start(0)
+    mood.tick(SLEEP_AFTER_MS)
+    expect(mood.activity(18 * HOUR)).toEqual([
+      { do: 'wake', line: '3 days in a row! ✨' },
+      { do: 'remember', memory: { lastDay: '2026-11-10', streak: 3 } },
+    ])
+  })
+
+  test('a broken memory file just starts afresh', () => {
+    const mood = from(monday, { lastDay: 'someday', streak: 'lots' })
+    expect(mood.start(0)[1]).toEqual({ do: 'remember', memory: { lastDay: '2026-11-09', streak: 1 } })
+  })
+
+  test('back after an hour or more: she says for how long', () => {
+    const mood = from(monday, { lastDay: '2026-11-09', streak: 1 })
+    mood.start(0)
+    mood.slept(BACK_LONG_MS * 2)
+    expect(mood.activity(3 * HOUR)).toEqual([{ do: 'wake', line: 'Welcome back~ that was 2 hours.', linger: true }])
+    // Several sleeps in a row (the computer stirs in its sleep) add up.
+    mood.slept(2 * HOUR)
+    mood.slept(3 * HOUR)
+    expect(mood.activity(9 * HOUR)[0].line).toBe('Welcome back~ that was 5 hours.')
+    // A short one: no need to say.
+    mood.slept(BACK_AFTER_MS)
+    expect(mood.activity(9.5 * HOUR)[0].line).toBe('Oh, you’re back! ✨')
+  })
+
+  test('how long, in words', () => {
+    expect(awaySpan(HOUR)).toBe('about an hour')
+    expect(awaySpan(5.4 * HOUR)).toBe('5 hours')
+    expect(awaySpan(26 * HOUR)).toBe('a day')
+    expect(awaySpan(70 * HOUR)).toBe('3 days')
   })
 })
 
@@ -206,7 +309,7 @@ describe('her own lines, as the user wants them', () => {
     try {
       setCustomLines([customLines({ mode: 'replace', greetings: ['Ohayo, master~'], musings: [] })])
       const mood = make()
-      expect(mood.start(0)).toEqual([{ do: 'greet', line: 'Ohayo, master~' }])
+      expect(mood.start(0)[0]).toEqual({ do: 'greet', line: 'Ohayo, master~' })
       expect(mood.tick(MUSE_MAX_MS + 1)).toEqual([])
     } finally {
       setCustomLines([])

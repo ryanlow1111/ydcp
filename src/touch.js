@@ -1,6 +1,6 @@
 // Where she's touched, and how the cursor plays with her without a click: a poke lands on her
 // face, a hand or her body; a cursor rushing at her face makes her flinch; a cursor resting on
-// her face is a stare, and she gets shy.
+// her face is a stare, and she gets shy; a cursor wiggled near her makes her curious.
 //
 // Plain logic with positions in window pixels and the time passed in (seconds), so it's easy
 // to test; pet.js measures where her face and hands are on screen and acts on the answers.
@@ -13,6 +13,13 @@ const FLINCH_AGAIN_S = 4
 export const STARE_S = 3
 /** …and she gets shy about it at most this often (and only once per visit). */
 export const STARE_AGAIN_S = 45
+/** A wiggle: the cursor changing direction this many times… */
+export const WIGGLE_TURNS = 4
+/** …within this long, travelling at least this far (pixels) between turns… */
+const WIGGLE_WINDOW_S = 1.5
+const WIGGLE_PX = 10
+/** …near her: within this many face-widths of her face, but not on it (that's a pat or a stare). */
+const WIGGLE_REACH = 5
 
 const within = (point, circle) => circle !== null && circle !== undefined && Math.hypot(point.x - circle.x, point.y - circle.y) <= circle.r
 
@@ -36,8 +43,9 @@ export function zoneOf(point, { face = null, hands = {} } = {}) {
 
 /**
  * The cursor around her face, over time. `cursor` returns 'flinch:left' or 'flinch:right'
- * (the side it came from, as you see her) when it rushes onto her face; `stare` says when
- * she's been looked at long enough to get shy.
+ * (the side it came from, as you see her) when it rushes onto her face, and 'curious:left' or
+ * 'curious:right' (the side it's on) for as long as it's being wiggled near her; `stare` says
+ * when she's been looked at long enough to get shy.
  */
 export function createCursorPlay() {
   let last = null
@@ -46,6 +54,10 @@ export function createCursorPlay() {
   let armed = true
   let shyAt = -Infinity
   let flinchAt = -Infinity
+  /** The wiggle so far: where the cursor last turned or set off, which way it's going, and its turns. */
+  let wiggleFrom = null
+  let wiggleWay = 0
+  let turns = []
 
   return {
     /** The cursor is at (x, y); `face` is her face's circle, or null while she can't react. */
@@ -58,6 +70,26 @@ export function createCursorPlay() {
           flinchAt = t
           event = last.x < face.x ? 'flinch:left' : 'flinch:right'
         }
+      }
+      // A wiggle near her (not on her face): back and forth, a few times, quickly.
+      const near = !now && face !== null && face !== undefined && Math.hypot(x - face.x, y - face.y) <= face.r * WIGGLE_REACH
+      if (!near) {
+        wiggleFrom = null
+        wiggleWay = 0
+        turns = []
+      } else if (wiggleFrom === null) {
+        wiggleFrom = x
+      } else if (Math.abs(x - wiggleFrom) > WIGGLE_PX) {
+        const way = Math.sign(x - wiggleFrom)
+        if (wiggleWay !== 0 && way !== wiggleWay) {
+          turns.push(t)
+        }
+        wiggleWay = way
+        wiggleFrom = x
+      }
+      turns = turns.filter(at => t - at < WIGGLE_WINDOW_S)
+      if (event === null && turns.length >= WIGGLE_TURNS) {
+        event = x < face.x ? 'curious:left' : 'curious:right'
       }
       if (now && since === null) {
         since = t

@@ -220,6 +220,7 @@ She can **optionally** react to an AI coding agent, such as cheering when a task
   - Reload
 - **Size ▸** Small / Medium / Large
 - Always on top ✓
+- **Chattiness ▸** Quiet / Calm (default) / Chatty: how often she speaks up on her own.
 - **React to agent ▸** Off (default) / On / Auto. Under On and Auto it shows "(no agent found)" while there's no `state.json`.
 - Open pet folder
 - About… (version, licence, credits for the model and motions, privacy statement, project link)
@@ -230,7 +231,9 @@ She can **optionally** react to an AI coding agent, such as cheering when a task
   - Calm by default (changed after beta feedback: constant motion was distracting): she stays on Idle, and moments only play on a poke, from the menu, or as a greeting. Vibes → Auto (drift) rotates loops every 20–40 s. Musings every 70–160 s.
   - She gets sleepy after 10 minutes with no keyboard or mouse input and wakes on the next input or a poke. `idle.rs` asks the system for the seconds since the last input (no permission, no key details); the cursor loop passes "you're here" on once a second.
   - Her gaze (`gaze.js`): the moving cursor, then back to you, with glances. Four pokes in five seconds is a huff. Dragged, she dangles and swings (`carry.js`).
-  - Touch (`touch.js`): a poke lands on her face (a flinch), a hand (she holds it up for a high five; a click on the raised hand is the clap) or her body (a moment). A still press of half a second is a hold: she leans in. A cursor rushing at her face makes her flinch; one resting on it for three seconds makes her shy.
+  - Touch (`touch.js`): a poke lands on her face (a flinch), a hand (she holds it up for a high five; a click on the raised hand is the clap) or her body (a moment). A still press of half a second is a hold: she leans in. A cursor rushing at her face makes her flinch; one resting on it for three seconds makes her shy; one wiggled beside her (four changes of direction in a second and a half) tips her head toward it.
+  - Taking turns (`director.js`): every line has a kind. Answers to what you just did and things you asked for (reminders, the agent link) are always shown. Greetings wait for a bubble that's up. Her own ideas (musings, the time of day) are rationed by Chattiness, never replace a bubble, and stay unsaid for 20 seconds after you touch her. Quiet mutes greetings and her own ideas.
+  - Memory (`memory.js`): `settings.json` keeps the last day she saw you and the run of days, nothing else. The first time she sees you each day (at launch, on waking, or back from the computer's sleep) the day may be an occasion, in this order: your birthday (`"birthday"` in `lines.json`), three or more days apart, a run of 3/7/14/30/50/100/200/365 days, a weekend. An occasion's line replaces her greeting.
   - After the computer slept five minutes or more (the cursor loop sees the clock jump), she welcomes you back at the next input.
   - She greets you on launch and when she wakes.
 - **`agentLink`:**
@@ -282,7 +285,7 @@ Optional fields: `"line": "string"` (said in her bubble) and `"at": <ms epoch>`.
 | No open ports | No server; file watch only |
 | Least file access | Commands only touch `~/.ydcp/`; names validated (no `/`, `\`, `..`; allowed extensions); size caps |
 | Least permissions | `capabilities/default.json`: `core:event:default`, `core:window:allow-start-dragging`, `core:window:allow-set-size`, `window-state:default`, `dialog:allow-open`, `opener:allow-reveal-item-in-dir` (pet folder only), `opener:allow-open-url` (fixed docs and project links only) |
-| No special OS permissions | No Input Monitoring, Accessibility, Screen Recording, Camera or Mic, on either OS. The only things read about the user are the cursor position and the seconds since the last input |
+| No special OS permissions | No Input Monitoring, Accessibility, Screen Recording, Camera or Mic, on either OS. The only things read about the user are the cursor position and the seconds since the last input; the only things kept are the last day she saw them and the run of days |
 | No shell | No shell plugin |
 
 Install-time note: on Windows, if WebView2 is missing, the installer downloads it from Microsoft once.
