@@ -4,7 +4,7 @@
 // git-ignored dev/models folder; settings live in this tab only.
 //
 // Console: __app.pick('aboutModel'), __app.pick('outfit', 'hat01'), __app.pick('face', 'happy01'),
-// __app.pick('chattiness', 'quiet'),
+// __app.pick('chattiness', 'quiet'), __app.pick('notice', 'shy'),
 // __app.emit('agent', { mood: 'done' }), __app.emit('cursor', { x: 300, y: 100, inside: true }),
 // __app.emit('input'), __app.emit('woke', 3600), __app.settings, __app.catalogue,
 // __app.emit('sense', { battery: { percent: 15, plugged: false, charging: false }, cpu: 0.2 }),
@@ -40,6 +40,10 @@ const fake = {
   },
   /** A menu pick, as the tray menu sends it (outfit toggles are saved first, as in lib.rs). */
   pick(kind, id = null) {
+    if (kind === 'notice') {
+      const off = settings.noticesOff ?? []
+      settings.noticesOff = off.includes(id) ? off.filter(name => name !== id) : [...off, id]
+    }
     if (kind === 'outfit') {
       const wearing = fake.catalogue?.wearing ?? []
       settings.outfits[modelName] = id === null ? [] : wearing.includes(id) ? wearing.filter(name => name !== id) : [...wearing, id]
@@ -76,6 +80,7 @@ const commands = {
   set_pet_scale: ({ scale }) => Math.min(2, Math.max(0.5, scale)),
   break_every: () => settings.breakEvery ?? 0,
   chattiness: () => settings.chattiness ?? 'calm',
+  notices_off: () => settings.noticesOff ?? [],
   memory: () => settings.memory,
   remember: ({ memory }) => {
     settings.memory = memory

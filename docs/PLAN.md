@@ -221,6 +221,7 @@ She can **optionally** react to an AI coding agent, such as cheering when a task
 - **Size ▸** Small / Medium / Large
 - Always on top ✓
 - **Chattiness ▸** Quiet / Calm (default) / Chatty: how often she speaks up on her own.
+- **Notices ▸** a tick each for glances and curiosity, shy when stared at, welcome back and special days, battery and charger, heavy work (all on at first; `noticesOff` in `settings.json` lists the ones switched off). Battery and heavy work, when off, are not read at all.
 - **React to agent ▸** Off (default) / On / Auto. Under On and Auto it shows "(no agent found)" while there's no `state.json`.
 - Open pet folder
 - About… (version, licence, credits for the model and motions, privacy statement, project link)

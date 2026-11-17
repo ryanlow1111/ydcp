@@ -245,6 +245,22 @@ describe('what she remembers (the first time she sees you each day)', () => {
     ])
   })
 
+  test('with occasions switched off she says nothing special, but the days still count', () => {
+    const mood = from(monday, { lastDay: '2026-11-08', streak: 2 })
+    mood.setOccasions(false)
+    expect(mood.start(0)).toEqual([
+      { do: 'greet', line: 'Hi hi~ I’ll keep you company ♪' },
+      { do: 'remember', memory: { lastDay: '2026-11-09', streak: 3 } },
+    ])
+    // No welcome back after the computer slept either.
+    mood.slept(BACK_LONG_MS * 3)
+    expect(mood.activity(4 * HOUR)).toEqual([])
+    // She still wakes with her usual hello if she had dozed off.
+    mood.tick(4 * HOUR + SLEEP_AFTER_MS)
+    mood.slept(BACK_LONG_MS)
+    expect(mood.activity(5 * HOUR)).toEqual([{ do: 'wake', line: 'Mm? Oh! Welcome back~' }])
+  })
+
   test('a broken memory file just starts afresh', () => {
     const mood = from(monday, { lastDay: 'someday', streak: 'lots' })
     expect(mood.start(0)[1]).toEqual({ do: 'remember', memory: { lastDay: '2026-11-09', streak: 1 } })

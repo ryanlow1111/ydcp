@@ -425,6 +425,17 @@ fn on_pick<R: Runtime>(app: &AppHandle<R>, pick: Pick) {
             menu::refresh(app);
             let _ = app.emit_to("main", "pick", Pick::Chattiness(choice.to_string()));
         }
+        Pick::Notice(ref id) => {
+            let Ok(off) = app.state::<SharedMenu>().0.lock().map(|mut state| {
+                state.notices_off = settings::toggle_notice(&state.notices_off, id);
+                state.notices_off.clone()
+            }) else {
+                return;
+            };
+            save_setting(app, |settings| settings.notices_off = off);
+            menu::refresh(app);
+            let _ = app.emit_to("main", "pick", pick);
+        }
         Pick::OpenFolder => open_folder(app),
         Pick::Quit => app.exit(0),
     }
@@ -554,6 +565,16 @@ fn show_pet<R: Runtime>(app: AppHandle<R>) {
         state.visible = true;
     }
     menu::refresh(&app);
+}
+
+/// Menu → Notices: the ones switched off.
+#[tauri::command]
+fn notices_off<R: Runtime>(app: AppHandle<R>) -> Vec<String> {
+    app.state::<SharedMenu>()
+        .0
+        .lock()
+        .map(|state| state.notices_off.clone())
+        .unwrap_or_default()
 }
 
 /// Menu → Chattiness: 'quiet', 'calm' or 'chatty'.
@@ -686,6 +707,7 @@ pub fn run() {
             set_pet_scale,
             break_every,
             chattiness,
+            notices_off,
             memory,
             remember,
             set_timer_left,
@@ -732,6 +754,7 @@ pub fn run() {
             let frame_rate = settings::valid_frame_rate(saved.frame_rate);
             let break_every = settings::valid_break_every(saved.break_every);
             let chattiness = settings::valid_chattiness(saved.chattiness.as_deref());
+            let notices_off = settings::valid_notices_off(&saved.notices_off);
             let login_blocked = login_blocked();
             let start_at_login = start_at_login(app.handle(), login_blocked);
             let language_choice = saved
@@ -753,6 +776,7 @@ pub fn run() {
                     language_choice,
                     break_every,
                     chattiness,
+                    notices_off,
                     ..MenuState::default()
                 };
             }

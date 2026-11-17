@@ -31,6 +31,9 @@ export const readMotions = () => invoke('read_motions')
 /** The chosen frame rate (60 or 30). */
 export const frameRate = () => invoke('frame_rate')
 
+/** Menu → Notices: the ones switched off, e.g. ['shy', 'battery']. */
+export const noticesOff = () => invoke('notices_off')
+
 /** Menu → Chattiness: 'quiet', 'calm' or 'chatty'. */
 export const chattiness = () => invoke('chattiness')
 

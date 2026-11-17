@@ -35,6 +35,28 @@ pub fn valid_break_every(minutes: Option<u32>) -> u32 {
 pub const CHATTINESS: [&str; 3] = ["quiet", "calm", "chatty"];
 pub const DEFAULT_CHATTINESS: &str = "calm";
 
+/// Menu → Notices: the things she notices on her own, each of which can be switched off.
+/// `battery` and `work` also stop the app reading the battery and the processor at all.
+pub const NOTICES: [&str; 5] = ["glances", "shy", "occasions", "battery", "work"];
+
+/// The switched-off notices as saved, checked: only known ones, each once, in menu order.
+pub fn valid_notices_off(saved: &[String]) -> Vec<String> {
+    NOTICES
+        .into_iter()
+        .filter(|known| saved.iter().any(|name| name == known))
+        .map(str::to_string)
+        .collect()
+}
+
+/// Switches one notice off or back on; unknown names change nothing.
+pub fn toggle_notice(off: &[String], notice: &str) -> Vec<String> {
+    let mut now: Vec<String> = off.iter().filter(|name| *name != notice).cloned().collect();
+    if now.len() == off.len() {
+        now.push(notice.to_string());
+    }
+    valid_notices_off(&now)
+}
+
 /// The chattiness choices the menu offers; anything else in the file falls back to calm.
 pub fn valid_chattiness(choice: Option<&str>) -> &'static str {
     CHATTINESS
@@ -163,6 +185,9 @@ pub struct Settings {
         skip_serializing_if = "Option::is_none"
     )]
     pub break_every: Option<u32>,
+    /// Menu → Notices: the ones switched off (all are on unless listed here).
+    #[serde(default, rename = "noticesOff", skip_serializing_if = "Vec::is_empty")]
+    pub notices_off: Vec<String>,
     /// The last day she saw you and the run of days (see `Memory`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub memory: Option<Memory>,
@@ -425,6 +450,24 @@ mod tests {
                 .unwrap()
                 .contains(r#""lastDay":"2026-11-13""#)
         );
+    }
+
+    #[test]
+    fn notices_switch_off_and_back_on() {
+        let none: Vec<String> = Vec::new();
+        let off = toggle_notice(&none, "shy");
+        assert_eq!(off, vec!["shy".to_string()]);
+        let two = toggle_notice(&off, "battery");
+        assert_eq!(two, vec!["shy".to_string(), "battery".to_string()]);
+        assert_eq!(toggle_notice(&two, "shy"), vec!["battery".to_string()]);
+        // Unknown names, and odd things in the file, are dropped.
+        assert_eq!(toggle_notice(&none, "everything"), none);
+        let odd = vec![
+            "work".to_string(),
+            "nonsense".to_string(),
+            "work".to_string(),
+        ];
+        assert_eq!(valid_notices_off(&odd), vec!["work".to_string()]);
     }
 
     #[test]

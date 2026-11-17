@@ -113,7 +113,7 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     const [what, side] = play.cursor(t, x, y, asleep || carrying.held ? null : faceCircle())?.split(':') ?? []
     if (what === 'flinch') {
       flinch(t, side)
-    } else if (what === 'curious' && idle(t)) {
+    } else if (what === 'curious' && notices.glances && idle(t)) {
       // Wiggled at: her head tilts toward it, and now and then she asks.
       curious.until = t + CURIOUS_S
       curious.side = side === 'left' ? -1 : 1
@@ -508,6 +508,8 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
   let pokeMomentAt = Infinity
   let huffUntil = -Infinity
   let carriedAt = -Infinity
+  /** Menu → Notices: her glances and curiosity, and getting shy when stared at. */
+  const notices = { glances: true, shy: true }
   /** A passing feeling on her face (worried about the battery, glad of the charger): which, until when. */
   const feeling = { face: null, until: -Infinity }
   /** Held with a still press: she leans into it, as for a pat. */
@@ -887,7 +889,7 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     pat.amount += ((t < pat.until || snuggling ? 1 : 0) - pat.amount) * Math.min(1, dt * 4)
 
     // Stared at (the cursor resting on her face): she gets shy, if she's free to.
-    if (play.stare(t, idle(t))) {
+    if (notices.shy && play.stare(t, idle(t))) {
       playMoment('shy')
     }
     // Curious about a wiggling cursor: her head tips toward it.
@@ -1025,6 +1027,12 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     feel(face, seconds) {
       feeling.face = face
       feeling.until = timer.getElapsed() + seconds
+    },
+    /** Menu → Notices: switches her glances and curiosity, and her shyness at a stare, on or off. */
+    setNotices({ glances = true, shy = true } = {}) {
+      notices.glances = glances
+      notices.shy = shy
+      attention.setGlances(glances)
     },
     zoneAt,
     snuggle,

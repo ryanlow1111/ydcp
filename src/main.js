@@ -32,6 +32,7 @@ import {
   listAnims,
   memory,
   modelsFolder,
+  noticesOff,
   moveWindowTo,
   onAgent,
   onCursor,
@@ -462,6 +463,7 @@ async function ensurePet() {
     },
   })
   wireResizing()
+  pet.setNotices({ glances: !switchedOff.has('glances'), shy: !switchedOff.has('shy') })
   // For the dev pages only (never in a release): lets the console ask her things, e.g. __pet.zoneAt(x, y).
   if (import.meta.env.DEV) {
     window.__pet = pet
@@ -629,6 +631,16 @@ function applyLanguage(code) {
 
 // ---- Menu picks and app events ------------------------------------------------------------
 
+/** Menu → Notices: the ones switched off. */
+let switchedOff = new Set()
+
+/** (Re)reads Menu → Notices and makes each switch take effect. */
+async function applyNotices() {
+  switchedOff = new Set(await noticesOff().catch(() => []))
+  mood.setOccasions(!switchedOff.has('occasions'))
+  pet?.setNotices({ glances: !switchedOff.has('glances'), shy: !switchedOff.has('shy') })
+}
+
 /** What she says when Menu → Chattiness changes. */
 const CHATTINESS_LINES = { quiet: 'chattiness.quiet', calm: 'chattiness.calm', chatty: 'chattiness.chatty' }
 
@@ -683,6 +695,9 @@ async function start() {
       case 'language':
         applyLanguage(id)
         break
+      case 'notice':
+        applyNotices()
+        break
       case 'chattiness':
         director.setChattiness(id)
         say(t(CHATTINESS_LINES[director.chattiness]))
@@ -696,7 +711,12 @@ async function start() {
   await onWoke(seconds => mood.slept(seconds * 1000))
   await onSense(snapshot => {
     const awake = Boolean(pet && model) && !mood.asleep
-    for (const notice of senses.read(snapshot, Date.now(), awake)) {
+    // The app doesn't read what's switched off; this is only for a report already on its way.
+    const reading = {
+      battery: switchedOff.has('battery') ? null : snapshot?.battery,
+      cpu: switchedOff.has('work') ? null : snapshot?.cpu,
+    }
+    for (const notice of senses.read(reading, Date.now(), awake)) {
       noticed(notice)
     }
   })
@@ -704,6 +724,7 @@ async function start() {
   applyLanguage(await appLanguage().catch(() => 'en'))
   reminders.setBreakEvery(await breakEvery().catch(() => 0), Date.now())
   director.setChattiness(await chattiness().catch(() => 'calm'))
+  await applyNotices()
   mood.setMemory(await memory().catch(() => null))
   await loadLines()
   await loadLibrary()

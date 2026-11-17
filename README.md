@@ -177,6 +177,7 @@ YDCP only reads your model from your own computer. It never uploads, shares or m
 | Click the app behind her | Just click; empty space is click-through |
 | Change size | Pinch on a trackpad, or hold **⌘** (Mac) / **Ctrl** (Windows) and scroll, over her. Or Menu → **Size** → Small / Medium / Large |
 | How much she talks | Menu → **Chattiness** → Quiet (she only answers you and gives the reminders you set), Calm (the default: something of her own every five minutes at most) or Chatty (every minute or two) |
+| Switch off something she notices | Menu → **Notices** → untick it: glances and curiosity, shy when stared at, welcome back and special days, battery and charger, heavy work. With the last two off, YDCP stops reading the battery or the processor at all |
 | Break reminders | Menu → **Reminders → Break reminder** → every 30–90 minutes of work. Time away from the computer counts as a break |
 | Timer | Menu → **Reminders → Timer** → 5–60 minutes; she waves and tells you when time's up |
 | Start with your computer | Menu → **Start at login** (Mac: move YDCP to Applications first) |
@@ -315,7 +316,7 @@ The `.json` files above are plain text files that you can open in any text edito
 - No open network ports. The AI agent link is a local file.
 - **No special permissions:** no screen recording, accessibility, input monitoring, camera or microphone.
 - **What she knows about you:** where the cursor is, and how many seconds ago the keyboard or mouse was last touched (one number from the system, so she knows you're there). Never which keys, what you typed, or which app you're in.
-- **What she knows about the computer:** the battery level and whether it's plugged in, and how busy the processor is as one overall share. Never which apps are running or what they're doing.
+- **What she knows about the computer:** the battery level and whether it's plugged in, and how busy the processor is as one overall share. Never which apps are running or what they're doing. Menu → Notices switches either off, and then it isn't read.
 - **What she remembers:** two things, in `settings.json`: the last day she saw you, and how many days in a row. Your birthday is only read from `lines.json` if you wrote it there.
 - YDCP reads and writes only its own `.ydcp` folder, plus `.vrm` files you choose to open. The one exception is **Start at login**, which only when you turn it on adds a standard login entry (Mac: `~/Library/LaunchAgents/YDCP.plist`; Windows: the usual "Run" entry in your user registry).
 - The only time anything is downloaded is on Windows if WebView2 is missing during install, from Microsoft.

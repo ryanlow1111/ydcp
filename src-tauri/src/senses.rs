@@ -3,13 +3,16 @@
 //! are open, or what's on screen. No OS permission on either platform.
 //!
 //! Read every few seconds on a background thread and sent to the page as a `sense` event; the
-//! page decides what's worth a reaction (src/senses.js).
+//! page decides what's worth a reaction (src/senses.js). Menu → Notices switches the battery
+//! and the processor off separately, and what's off isn't read.
 
 use std::thread;
 use std::time::Duration;
 
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, Runtime};
+use tauri::{AppHandle, Emitter, Manager, Runtime};
+
+use crate::menu::SharedMenu;
 
 /// How often the computer is looked at.
 const EVERY: Duration = Duration::from_secs(5);
@@ -293,14 +296,26 @@ pub fn start<R: Runtime>(app: AppHandle<R>) {
         let mut before = system::ticks();
         loop {
             thread::sleep(EVERY);
-            let now = system::ticks();
+            // Menu → Notices: what's switched off isn't read at all.
+            let on = |notice: &str| {
+                app.state::<SharedMenu>()
+                    .0
+                    .lock()
+                    .map(|state| !state.notices_off.iter().any(|off| off == notice))
+                    .unwrap_or(true)
+            };
+            let (battery_on, work_on) = (on("battery"), on("work"));
+            let now = if work_on { system::ticks() } else { None };
             let cpu = match (&before, &now) {
                 (Some(before), Some(now)) => system::load(before, now),
                 _ => None,
             };
             before = now;
+            if !battery_on && !work_on {
+                continue;
+            }
             let snapshot = Snapshot {
-                battery: system::battery(),
+                battery: if battery_on { system::battery() } else { None },
                 cpu,
             };
             let _ = app.emit_to("main", "sense", snapshot);

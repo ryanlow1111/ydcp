@@ -40,6 +40,7 @@ describe('every key the app uses exists', () => {
       ...['small', 'medium', 'large'].map(id => `menu.size.${id}`),
       ...['off', 'on', 'auto'].map(id => `menu.agent.${id}`),
       ...['quiet', 'calm', 'chatty'].map(id => `menu.chattiness.${id}`),
+      ...['glances', 'shy', 'occasions', 'battery', 'work'].map(id => `menu.notice.${id}`),
     )
     for (const key of keys) {
       expect(en[key], key).toBeTypeOf('string')

@@ -88,6 +88,8 @@ export function createMood({ now, random = Math.random, hourAt = time => new Dat
   /** The last day she saw you and the run of days (memory.js), and your birthday if she knows it. */
   let memory = validMemory(null)
   let birthday = null
+  /** Menu → Notices: whether a welcome back and the day's occasion get a word. */
+  let occasions = true
 
   /**
    * She sees you. The first time each day her memory moves on (to be saved), and if the day
@@ -100,7 +102,8 @@ export function createMood({ now, random = Math.random, hourAt = time => new Dat
     }
     memory = met.memory
     const { occasion } = met
-    const line = occasion === null ? null : fill(pick(`lines.${occasion.kind}`, random), { n: occasion.days })
+    // Switched off, the day still counts (so the run of days is right later); she just doesn't say.
+    const line = occasion === null || !occasions ? null : fill(pick(`lines.${occasion.kind}`, random), { n: occasion.days })
     return { line, save: [{ do: 'remember', memory }] }
   }
 
@@ -113,6 +116,9 @@ export function createMood({ now, random = Math.random, hourAt = time => new Dat
     lastActivity = time
     const away = awayMs
     awayMs = 0
+    if (!occasions) {
+      back = false
+    }
     if (back) {
       // Back after the computer slept: a word for the day if it's an occasion, else a hello
       // for the time of day, else a welcome back (saying how long, after an hour or more;
@@ -147,6 +153,11 @@ export function createMood({ now, random = Math.random, hourAt = time => new Dat
     /** What was saved of her memory (see memory.js); anything odd starts it afresh. */
     setMemory(saved) {
       memory = validMemory(saved)
+    },
+
+    /** Menu → Notices: whether she welcomes you back and has a word for the day's occasion. */
+    setOccasions(on) {
+      occasions = Boolean(on)
     },
 
     /** Your birthday as written in lines.json ("11-13"), or nothing. */

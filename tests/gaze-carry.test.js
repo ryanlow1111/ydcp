@@ -33,6 +33,19 @@ describe('where she looks', () => {
     expect(gaze.aim(start + GLANCE_MAX_S + 3)).toEqual({ x: 0, y: 0, head: 1 })
   })
 
+  test('with glances switched off she just looks at you between cursor moves', () => {
+    const gaze = createGaze({ random: () => 0.9 })
+    gaze.setGlances(false)
+    gaze.cursor(0, 400, 100, 0.6, -0.2)
+    expect(gaze.aim(1)).toEqual({ x: 0.6, y: -0.2, head: 1 })
+    for (let t = WATCH_S + 0.1; t < WATCH_S + 3 * GLANCE_MAX_S; t += 0.5) {
+      expect(gaze.aim(t)).toEqual({ x: 0, y: 0, head: 1 })
+    }
+    gaze.setGlances(true)
+    gaze.aim(100)
+    expect(Math.abs(gaze.aim(100 + GLANCE_MAX_S).x)).toBeGreaterThan(0.2)
+  })
+
   test('some glances are a peek at where the cursor rests', () => {
     const gaze = createGaze({ random: () => 0.1 })
     gaze.cursor(0, 400, 100, 0.6, -0.2)

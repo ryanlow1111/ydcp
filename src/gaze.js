@@ -33,6 +33,8 @@ export function createGaze({ random = Math.random } = {}) {
   let glance = null
   let nextGlance = null
   let avert = null
+  /** Menu → Notices: whether she glances away on her own. */
+  let glances = true
 
   const between = (low, high) => low + random() * (high - low)
 
@@ -59,6 +61,13 @@ export function createGaze({ random = Math.random } = {}) {
       nextGlance = null
     },
 
+    /** Switches her glances away on or off (off: she just looks at you between cursor moves). */
+    setGlances(on) {
+      glances = Boolean(on)
+      glance = null
+      nextGlance = null
+    },
+
     /** Whether she's watching the cursor right now. */
     watching(t) {
       return t - movedAt < WATCH_S
@@ -73,6 +82,9 @@ export function createGaze({ random = Math.random } = {}) {
       }
       if (t - movedAt < WATCH_S) {
         return { x: cursor.x, y: cursor.y, head: 1 }
+      }
+      if (!glances) {
+        return { x: 0, y: 0, head: 1 }
       }
       // Looking at you; now and then, a glance somewhere else.
       if (nextGlance === null) {

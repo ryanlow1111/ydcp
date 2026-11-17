@@ -26,6 +26,7 @@
     "allow-set-pet-scale",
     "allow-break-every",
     "allow-chattiness",
+    "allow-notices-off",
     "allow-memory",
     "allow-remember",
     "allow-set-timer-left",

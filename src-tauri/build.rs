@@ -19,6 +19,7 @@ fn main() {
             "set_pet_scale",
             "break_every",
             "chattiness",
+            "notices_off",
             "memory",
             "remember",
             "set_timer_left",

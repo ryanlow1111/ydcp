@@ -92,6 +92,8 @@ pub struct MenuState {
     pub timer_left: Option<u32>,
     /// How often she speaks up on her own: 'quiet', 'calm' or 'chatty'.
     pub chattiness: &'static str,
+    /// Menu → Notices: the ones switched off.
+    pub notices_off: Vec<String>,
     /// Whether `~/.ydcp/state.json` exists (an agent hook has written it).
     pub agent_found: bool,
 }
@@ -117,6 +119,7 @@ impl Default for MenuState {
             break_every: 0,
             timer_left: None,
             chattiness: settings::DEFAULT_CHATTINESS,
+            notices_off: Vec::new(),
             agent_found: false,
         }
     }
@@ -148,6 +151,7 @@ pub enum Pick {
     Timer(String),
     CancelTimer,
     Chattiness(String),
+    Notice(String),
     Language(String),
     OpenFolder,
     About,
@@ -180,6 +184,7 @@ impl Pick {
             "timer" => Pick::Timer(rest.to_string()),
             "cancel-timer" => Pick::CancelTimer,
             "chattiness" => Pick::Chattiness(rest.to_string()),
+            "notice" => Pick::Notice(rest.to_string()),
             "language" => Pick::Language(rest.to_string()),
             "open-folder" => Pick::OpenFolder,
             "about" => Pick::About,
@@ -419,6 +424,17 @@ pub fn build<R: Runtime, M: Manager<R>>(app: &M, state: &MenuState) -> tauri::Re
     let chattiness =
         Submenu::with_items(app, tr("menu.chattiness"), true, &refs(&chattiness_items))?;
 
+    // Notices ▸ — what she notices on her own; untick one to switch it off.
+    let mut notice_items: Vec<Box<dyn IsMenuItem<R>>> = Vec::new();
+    for notice in settings::NOTICES {
+        notice_items.push(Box::new(check(
+            &format!("notice:{notice}"),
+            &tr(&format!("menu.notice.{notice}")),
+            !state.notices_off.iter().any(|off| off == notice),
+        )?));
+    }
+    let notices = Submenu::with_items(app, tr("menu.notices"), true, &refs(&notice_items))?;
+
     // React to agent ▸ (off by default; for people who use an AI agent or a script).
     let mut agent_items: Vec<Box<dyn IsMenuItem<R>>> = Vec::new();
     for mode in AgentLink::ALL {
@@ -493,6 +509,7 @@ pub fn build<R: Runtime, M: Manager<R>>(app: &M, state: &MenuState) -> tauri::Re
     items.extend([
         &reminders as &dyn IsMenuItem<R>,
         &chattiness,
+        &notices,
         &sizes,
         &rates,
         &on_top,
@@ -567,6 +584,10 @@ mod tests {
         );
         assert_eq!(Pick::parse("timer:25"), Some(Pick::Timer("25".into())));
         assert_eq!(Pick::parse("cancel-timer"), Some(Pick::CancelTimer));
+        assert_eq!(
+            Pick::parse("notice:battery"),
+            Some(Pick::Notice("battery".into()))
+        );
         assert_eq!(
             Pick::parse("chattiness:quiet"),
             Some(Pick::Chattiness("quiet".into()))
