@@ -35,7 +35,8 @@ pub struct Snapshot {
     pub cpu: Option<f64>,
 }
 
-/// A battery level as a percentage, from what the system reports.
+/// A battery level as a percentage, from what the system reports (Windows already gives one).
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 fn percent_of(current: i64, max: i64) -> u8 {
     if max <= 0 {
         return 0;
@@ -44,6 +45,7 @@ fn percent_of(current: i64, max: i64) -> u8 {
 }
 
 /// The share of processor time that was busy, from how much was idle and how much there was.
+#[cfg_attr(not(any(target_os = "macos", windows)), allow(dead_code))]
 fn busy_share(idle: u64, total: u64) -> Option<f64> {
     (total > 0).then(|| (1.0 - idle as f64 / total as f64).clamp(0.0, 1.0))
 }
