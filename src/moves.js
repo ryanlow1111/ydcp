@@ -19,6 +19,12 @@ export const CENTRE_LINE = new Set(['hips', 'spine', 'chest', 'upperChest', 'nec
 /** The same pose on the other side of the body: a right-arm pose made into a left-arm one. */
 export const mirror = ([x, y, z]) => [x, -y, -z]
 
+/** A whole pose seen in a mirror: left and right swap places, and every turn flips with them. */
+export function mirrorPose(pose) {
+  const other = bone => (bone.startsWith('right') ? bone.replace(/^right/, 'left') : bone.replace(/^left/, 'right'))
+  return Object.fromEntries(Object.entries(pose).map(([bone, value]) => [other(bone), mirror(value)]))
+}
+
 /** Every loop lasts a whole number of each rhythm in it, so its end joins its start smoothly. */
 export const LOOP = 24
 
@@ -190,6 +196,41 @@ export function armsClasped(body, lift = 0) {
 export const CLASPED_HANDS = {
   ...curledFingers({ index: 0.12, middle: 0.16, ring: 0.2, little: 0.24, thumb: 0.1 }),
   ...leftOf(curledFingers({ index: 0.3, middle: 0.38, ring: 0.45, little: 0.5 })),
+}
+
+/**
+ * Held up by your hand while you drag her: shoulders hunched, arms a little out from her
+ * sides, legs hanging with toes pointed and a slow, small kick. A short loop of its own.
+ */
+export function makeCarried(vrm, vrm0 = false, body = defaultBody()) {
+  const reach = body.upperArm + body.lowerArm
+  const arms = armsTo(
+    body,
+    side => {
+      const shoulder = body.shoulder[side]
+      const out = Math.max(Math.abs(shoulder[0]) * 1.05, body.clearX + body.height * 0.02) + body.height * 0.035
+      return [sideSign(side) * out, shoulder[1] - reach * 0.86, body.height * 0.05]
+    },
+    side => [sideSign(side) * 0.5, 0, -1],
+  )
+  return sampledClip(
+    vrm,
+    'carried',
+    4,
+    t =>
+      combine(arms, RELAXED_HANDS, bothSides({ rightShoulder: [0, 0, -0.1] }), {
+        spine: [0.03, 0, 0],
+        neck: [0.04, 0, 0],
+        head: [0.05, 0, wave(t, 4) * 0.03],
+        rightUpperLeg: [-0.1 + wave(t, 2) * 0.06, 0, 0.03],
+        leftUpperLeg: [-0.1 - wave(t, 2) * 0.06, 0, -0.03],
+        rightLowerLeg: [0.28 + wave(t, 2, 0.2) * 0.08, 0, 0],
+        leftLowerLeg: [0.28 - wave(t, 2, 0.2) * 0.08, 0, 0],
+        rightFoot: [0.4, 0, 0],
+        leftFoot: [0.4, 0, 0],
+      }),
+    vrm0,
+  )
 }
 
 /** The vibe loops: idle, sway, bop and sleepy, each `LOOP` seconds long, fitted to `body`. */

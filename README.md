@@ -168,15 +168,21 @@ YDCP only reads your model from your own computer. It never uploads, shares or m
 
 | To… | Do this |
 |---|---|
-| Move her | Drag her |
-| Poke her | Click her quickly; she does a random cute moment |
+| Move her | Drag her; she dangles from your hand and swings as you go. Shake her and she gets dizzy |
+| Poke her | Click her quickly; she does a random cute moment. Poke her four times in a row and she huffs and looks away (a head pat makes up) |
+| Poke her cheek | Click her face; she flinches, and often says something |
+| High five | Click one of her hands; she holds that hand up. Click the raised hand to clap it |
+| Hold her | Press on her and keep still for half a second; she leans into it until you let go |
 | Pat her head | Move the cursor gently back and forth over her head (no click); she smiles and leans in |
 | Click the app behind her | Just click; empty space is click-through |
 | Change size | Pinch on a trackpad, or hold **⌘** (Mac) / **Ctrl** (Windows) and scroll, over her. Or Menu → **Size** → Small / Medium / Large |
+| How much she talks | Menu → **Chattiness** → Quiet (she only answers you and gives the reminders you set), Calm (the default: something of her own every five minutes at most) or Chatty (every minute or two) |
+| Switch off something she notices | Menu → **Notices** → untick it: glances and curiosity, shy when stared at, welcome back and special days, battery and charger, heavy work. With the last two off, YDCP stops reading the battery or the processor at all |
 | Break reminders | Menu → **Reminders → Break reminder** → every 30–90 minutes of work. Time away from the computer counts as a break |
 | Timer | Menu → **Reminders → Timer** → 5–60 minutes; she waves and tells you when time's up |
 | Start with your computer | Menu → **Start at login** (Mac: move YDCP to Applications first) |
 | Change language | Menu → **Language** → English, 日本語, 简体中文 or 繁體中文. **Automatic** follows your system |
+| Tell her your birthday | Add `"birthday": "11-13"` (month-day) to `~/.ydcp/lines.json`; she wishes you a happy birthday that day. See [docs/lines.md](docs/lines.md#your-birthday) |
 | Change what she says | Add your own lines, or replace hers, for every model (`~/.ydcp/lines.json`) or one character (her profile). See [docs/lines.md](docs/lines.md) |
 | Pick a motion | Menu → **Motions** → a moment, a vibe, or an expression |
 | Put on a hat, glasses… | Menu → **Outfit** (only for models that have outfit parts; any number at once, with any expression) |
@@ -185,13 +191,21 @@ YDCP only reads your model from your own computer. It never uploads, shares or m
 | Save power on a laptop | Menu → **Frame rate** → 30 fps |
 | Hide / show | Menu → **Show / Hide** |
 
-When you leave the mouse alone for about 10 minutes she gets sleepy, and she wakes up when you're back.
+She watches the cursor while it moves, then looks back at you, with a glance away now and then. Rush the cursor at her face and she flinches; leave it resting on her face for a few seconds and she gets shy; wiggle it beside her and she tilts her head, curious.
+
+When you open your computer again after it slept for five minutes or more, she welcomes you back, and after an hour or more she says how long it's been.
+
+She notices how the computer itself is doing. On a laptop she worries when the battery drops to 20% (and again at 8%) and is glad when you plug in. When the processor has been working hard for a minute she fans herself, and when a job of two minutes or more ends she asks if it's done.
+
+She remembers the last day she saw you. The first time each day she may have a word for it: a run of days together (3, 7, 14, 30…), three or more days apart, the weekend, or your birthday.
+
+When you leave the keyboard and mouse alone for about 10 minutes she gets sleepy, and she wakes up when you're back. Typing counts as being there, even if the mouse doesn't move.
 
 ---
 
 ## Motions
 
-**Built in (no files needed):** vibes (Idle, Sway, Bop, Sleepy) and moments (Wave, Peace, Shy). They work with any VRM model.
+**Built in (no files needed):** vibes (Idle, Sway, Bop, Sleepy) and moments (Wave, Peace, Shy, High five, Phew). They work with any VRM model.
 
 **Add more:** put `.vrma` files (VRM Animation) into the motions folder, or use **Motions → Add motions…**:
 
@@ -270,7 +284,7 @@ Everything YDCP uses is in one folder: `~/.ydcp/` (Windows: `%USERPROFILE%\.ydcp
 ├── models/        your .vrm files (+ optional profiles)
 ├── anims/         your .vrma files (+ optional motions.json)
 ├── lines.json     optional: your own lines for her (docs/lines.md)
-├── settings.json  your choices: model, size, position, outfits, reminders, agent link
+├── settings.json  your choices: model, size, position, outfits, reminders, agent link; and the last day she saw you
 └── state.json     only if an AI agent or script writes it
 ```
 
@@ -301,6 +315,9 @@ The `.json` files above are plain text files that you can open in any text edito
 - **No internet use while running.** No auto-update checks. Links (such as the Releases page) open in your browser only when you click them.
 - No open network ports. The AI agent link is a local file.
 - **No special permissions:** no screen recording, accessibility, input monitoring, camera or microphone.
+- **What she knows about you:** where the cursor is, and how many seconds ago the keyboard or mouse was last touched (one number from the system, so she knows you're there). Never which keys, what you typed, or which app you're in.
+- **What she knows about the computer:** the battery level and whether it's plugged in, and how busy the processor is as one overall share. Never which apps are running or what they're doing. Menu → Notices switches either off, and then it isn't read.
+- **What she remembers:** two things, in `settings.json`: the last day she saw you, and how many days in a row. Your birthday is only read from `lines.json` if you wrote it there.
 - YDCP reads and writes only its own `.ydcp` folder, plus `.vrm` files you choose to open. The one exception is **Start at login**, which only when you turn it on adds a standard login entry (Mac: `~/Library/LaunchAgents/YDCP.plist`; Windows: the usual "Run" entry in your user registry).
 - The only time anything is downloaded is on Windows if WebView2 is missing during install, from Microsoft.
 

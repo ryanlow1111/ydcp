@@ -31,6 +31,62 @@ pub fn valid_break_every(minutes: Option<u32>) -> u32 {
         .unwrap_or(0)
 }
 
+/// Menu → Chattiness: how often she speaks up on her own (the front end does the rationing).
+pub const CHATTINESS: [&str; 3] = ["quiet", "calm", "chatty"];
+pub const DEFAULT_CHATTINESS: &str = "calm";
+
+/// Menu → Notices: the things she notices on her own, each of which can be switched off.
+/// `battery` and `work` also stop the app reading the battery and the processor at all.
+pub const NOTICES: [&str; 5] = ["glances", "shy", "occasions", "battery", "work"];
+
+/// The switched-off notices as saved, checked: only known ones, each once, in menu order.
+pub fn valid_notices_off(saved: &[String]) -> Vec<String> {
+    NOTICES
+        .into_iter()
+        .filter(|known| saved.iter().any(|name| name == known))
+        .map(str::to_string)
+        .collect()
+}
+
+/// Switches one notice off or back on; unknown names change nothing.
+pub fn toggle_notice(off: &[String], notice: &str) -> Vec<String> {
+    let mut now: Vec<String> = off.iter().filter(|name| *name != notice).cloned().collect();
+    if now.len() == off.len() {
+        now.push(notice.to_string());
+    }
+    valid_notices_off(&now)
+}
+
+/// The chattiness choices the menu offers; anything else in the file falls back to calm.
+pub fn valid_chattiness(choice: Option<&str>) -> &'static str {
+    CHATTINESS
+        .into_iter()
+        .find(|known| Some(*known) == choice)
+        .unwrap_or(DEFAULT_CHATTINESS)
+}
+
+/// What she remembers between launches: the last day she saw you and how many days in a row
+/// (the front end works these out; see src/memory.js). Nothing else about you is kept.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Memory {
+    /// The user's own calendar day, as "YYYY-MM-DD".
+    #[serde(default, rename = "lastDay", skip_serializing_if = "Option::is_none")]
+    pub last_day: Option<String>,
+    #[serde(default)]
+    pub streak: u32,
+}
+
+/// A memory worth saving: a real-looking day and a sensible run of days. Anything else is refused.
+pub fn valid_memory(memory: Memory) -> Option<Memory> {
+    let day = memory.last_day.as_deref()?;
+    let shaped = day.len() == 10
+        && day.char_indices().all(|(index, character)| match index {
+            4 | 7 => character == '-',
+            _ => character.is_ascii_digit(),
+        });
+    (shaped && (1..=100_000).contains(&memory.streak)).then_some(memory)
+}
+
 /// Frames a second unless the menu says otherwise.
 pub const DEFAULT_FRAME_RATE: u32 = 60;
 
@@ -129,6 +185,15 @@ pub struct Settings {
         skip_serializing_if = "Option::is_none"
     )]
     pub break_every: Option<u32>,
+    /// Menu → Notices: the ones switched off (all are on unless listed here).
+    #[serde(default, rename = "noticesOff", skip_serializing_if = "Vec::is_empty")]
+    pub notices_off: Vec<String>,
+    /// The last day she saw you and the run of days (see `Memory`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub memory: Option<Memory>,
+    /// Menu → Chattiness: 'quiet', 'calm' or 'chatty' (calm unless set).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chattiness: Option<String>,
     /// The outfit parts shown on each model (by file name), e.g. `"lily.vrm": ["hat01"]`.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub outfits: BTreeMap<String, Vec<String>>,
@@ -350,6 +415,67 @@ mod tests {
         assert_eq!(valid_break_every(None), 0);
         assert_eq!(valid_break_every(Some(45)), 45);
         assert_eq!(valid_break_every(Some(7)), 0);
+    }
+
+    #[test]
+    fn only_a_sensible_memory_is_saved() {
+        let memory = |day: &str, streak| Memory {
+            last_day: Some(day.to_string()),
+            streak,
+        };
+        assert_eq!(
+            valid_memory(memory("2026-11-13", 4)),
+            Some(memory("2026-11-13", 4))
+        );
+        assert_eq!(valid_memory(memory("2026-11-13", 0)), None);
+        assert_eq!(valid_memory(memory("2026-11-13", 4_000_000)), None);
+        assert_eq!(valid_memory(memory("13/11/2026", 4)), None);
+        assert_eq!(valid_memory(memory("2026-11-13T10:00", 4)), None);
+        assert_eq!(valid_memory(Memory::default()), None);
+    }
+
+    #[test]
+    fn memory_is_stored_under_its_own_names() {
+        let text = r#"{"memory":{"lastDay":"2026-11-13","streak":4}}"#;
+        let settings: Settings = serde_json::from_str(text).unwrap();
+        assert_eq!(
+            settings.memory,
+            Some(Memory {
+                last_day: Some("2026-11-13".into()),
+                streak: 4
+            })
+        );
+        assert!(
+            serde_json::to_string(&settings)
+                .unwrap()
+                .contains(r#""lastDay":"2026-11-13""#)
+        );
+    }
+
+    #[test]
+    fn notices_switch_off_and_back_on() {
+        let none: Vec<String> = Vec::new();
+        let off = toggle_notice(&none, "shy");
+        assert_eq!(off, vec!["shy".to_string()]);
+        let two = toggle_notice(&off, "battery");
+        assert_eq!(two, vec!["shy".to_string(), "battery".to_string()]);
+        assert_eq!(toggle_notice(&two, "shy"), vec!["battery".to_string()]);
+        // Unknown names, and odd things in the file, are dropped.
+        assert_eq!(toggle_notice(&none, "everything"), none);
+        let odd = vec![
+            "work".to_string(),
+            "nonsense".to_string(),
+            "work".to_string(),
+        ];
+        assert_eq!(valid_notices_off(&odd), vec!["work".to_string()]);
+    }
+
+    #[test]
+    fn chattiness_falls_back_to_calm() {
+        assert_eq!(valid_chattiness(Some("quiet")), "quiet");
+        assert_eq!(valid_chattiness(Some("chatty")), "chatty");
+        assert_eq!(valid_chattiness(Some("shouty")), "calm");
+        assert_eq!(valid_chattiness(None), "calm");
     }
 
     #[test]

@@ -31,6 +31,18 @@ export const readMotions = () => invoke('read_motions')
 /** The chosen frame rate (60 or 30). */
 export const frameRate = () => invoke('frame_rate')
 
+/** Menu → Notices: the ones switched off, e.g. ['shy', 'battery']. */
+export const noticesOff = () => invoke('notices_off')
+
+/** Menu → Chattiness: 'quiet', 'calm' or 'chatty'. */
+export const chattiness = () => invoke('chattiness')
+
+/** What she remembers between launches: { lastDay, streak } or null (memory.js). */
+export const memory = () => invoke('memory')
+
+/** Saves what she remembers. */
+export const remember = remembered => invoke('remember', { memory: remembered })
+
 /** The user's own lines, `~/.ydcp/lines.json`, as text or null. */
 export const readLines = () => invoke('read_lines')
 
@@ -75,6 +87,15 @@ export const setClickThrough = on => invoke('set_click_through', { on })
 
 /** Calls `handler({ x, y, inside })` whenever the cursor moves, wherever it is on screen. */
 export const onCursor = handler => listen('cursor', event => handler(event.payload))
+
+/** Calls `handler()` about once a second while the keyboard or mouse is in use (no details: just "you're here"). */
+export const onInput = handler => listen('input', () => handler())
+
+/** Calls `handler({ battery, cpu })` every few seconds: how the computer itself is doing (senses.js). */
+export const onSense = handler => listen('sense', event => handler(event.payload))
+
+/** Calls `handler(seconds)` when the computer comes back from `seconds` of sleep. */
+export const onWoke = handler => listen('woke', event => handler(event.payload))
 
 /** Calls `handler({ kind, id })` when a menu item for her is picked (moment, vibe, face, outfit, model, about). */
 export const onPick = handler => listen('pick', event => handler(event.payload))

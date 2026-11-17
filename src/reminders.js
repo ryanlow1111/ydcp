@@ -5,7 +5,7 @@
 
 import { t } from './i18n.js'
 
-/** Being away this long (no cursor movement) counts as a break. */
+/** Being away this long (nothing from the keyboard or mouse) counts as a break. */
 export const AWAY_IS_A_BREAK_MS = 5 * 60 * 1000
 /** A break reminder only comes while you're actually here (moved the cursor this recently). */
 const HERE_MS = 60 * 1000
@@ -43,7 +43,7 @@ export function createReminders({ now }) {
       return breakEvery
     },
 
-    /** The cursor moved: you're here. Being away a while counted as a break. */
+    /** The keyboard or mouse was touched: you're here. Being away a while counted as a break. */
     activity(time) {
       if (time - lastActivity >= AWAY_IS_A_BREAK_MS) {
         workStart = time

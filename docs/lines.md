@@ -43,7 +43,7 @@ A cool character's profile, `rei.json`, replacing hers completely:
 }
 ```
 
-`"musings": []` with `"replace"` means she doesn't muse at all.
+`"musings": []` with `"replace"` means she doesn't muse at all. To quieten every model at once, Menu → Chattiness → Quiet is simpler: she then speaks only when you touch her, and for the reminders you set.
 
 ## What you can set
 
@@ -51,12 +51,28 @@ A cool character's profile, `rei.json`, replacing hers completely:
 |---|---|
 | `greetings` | When she first appears |
 | `wake` | When you come back after she dozed off |
-| `sleep` | When she dozes off (10 minutes without the mouse) |
-| `musings` | Now and then, every minute or two |
+| `sleep` | When she dozes off (10 minutes without the keyboard or mouse) |
+| `musings` | Now and then: at most every five minutes on Calm, every minute or two on Chatty, never on Quiet (Menu → Chattiness) |
 | `cheer` | When the agent link says an agent finished (`done`) |
 | `failed` | When the agent link says something failed |
 | `pat` | Sometimes, when you pat her head |
-| `wave`, `peace`, `shy` | During the built-in moments of those names |
+| `back` | When you come back after the computer slept (five minutes or more) |
+| `backLong` | The same, after an hour or more. `{span}` becomes how long: "2 hours", "3 days" |
+| `birthday` | The first time she sees you on your birthday (see [Your birthday](#your-birthday)) |
+| `missed` | The first time she sees you after three or more days apart. `{n}` becomes the number of days |
+| `streak` | The first time she sees you on day 3, 7, 14, 30, 50, 100, 200 and 365 in a row. `{n}` becomes the number of days |
+| `weekend` | The first time she sees you on a Saturday or Sunday |
+| `batteryLow` | On battery at 20% or below, once. `{n}` becomes the level |
+| `batteryCritical` | On battery at 8% or below, once. `{n}` becomes the level |
+| `plugged` | When you plug in with 40% or less left |
+| `busy` | When the processor has been working hard for a minute |
+| `busyDone` | When heavy work of two minutes or more ends |
+| `face` | Often, when you poke her face |
+| `held` | Now and then, while you press and hold her |
+| `annoyed` | When you poke her four times in a row |
+| `dizzy` | When you shake her while dragging her |
+| `curious` | Sometimes, when you wiggle the cursor beside her |
+| `wave`, `peace`, `shy`, `highfive`, `fan` | During the built-in moments of those names (`fan` is Phew). `shy` is also what she says when the cursor rests on her face |
 
 Each is a list of lines; she picks one at random each time. A single line in quotes works too: `"pat": "Nyaa~"`.
 
@@ -66,6 +82,21 @@ Each is a list of lines; she picks one at random each time. A single line in quo
 | `"mode": "replace"` | Only your lines, for every name you list. Names you don't list keep hers. An empty list (`[]`) silences that one |
 
 **Both files at once:** her lines come first, then `lines.json` is applied, then the model's profile. So a profile with `"replace"` wins for that character, and a profile with `"add"` adds to whatever `lines.json` gave her.
+
+## Your birthday
+
+Add your birthday to `~/.ydcp/lines.json`, next to `"lines"`, as month-day:
+
+```json
+{
+  "birthday": "11-13",
+  "lines": {
+    "birthday": ["Happy birthday, master! 🎂"]
+  }
+}
+```
+
+The first time she sees you that day, she says one of her `birthday` lines (hers, or yours as above). `"11/13"` and `"1990-11-13"` work too; the year is ignored and never kept. Without a `"birthday"`, she simply never mentions it.
 
 ## Good to know
 

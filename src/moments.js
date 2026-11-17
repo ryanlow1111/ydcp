@@ -7,7 +7,7 @@
 // Each moment is a whole-body clip; the mixer fades it in over her vibe and back out.
 
 import { defaultBody, solveArm } from './body.js'
-import { RELAXED_HANDS, armsDown, bothSides, breathing, combine, curledFingers, leftOf, sampledClip, stance, wave } from './moves.js'
+import { RELAXED_HANDS, armsDown, bothSides, breathing, combine, curledFingers, leftOf, mirrorPose, sampledClip, stance, wave } from './moves.js'
 
 /** Arms from wrist targets: { upper, lower } per side, as bones. */
 const arm = (side, body, target, pole) => {
@@ -17,6 +17,7 @@ const arm = (side, body, target, pole) => {
 
 /**
  * Each moment: face, length in seconds, and `pose(t, body)` giving her whole body at time t.
+ * `random: false` keeps it out of what a poke may bring.
  * Its name and what she says are in src/locales/*.json (`moment.<id>`, `moment.<id>.line`).
  */
 export const MOMENTS = {
@@ -93,6 +94,57 @@ export const MOMENTS = {
       )
     },
   },
+  highfive: {
+    face: 'happy',
+    duration: 2.6,
+    pose: (t, body) => {
+      const { height, upperArm } = body
+      const [x, y, z] = body.shoulder.right
+      // She holds her open hand up beside her shoulder, forearm upright, palm toward you, and
+      // waits for your clap. The knock when it comes is added live (pet.js): it depends on
+      // when you clap, so it can't be part of the clip.
+      const bob = wave(t, 1.3) * height * 0.003
+      return combine(
+        breathing(t),
+        stance(0.8, -1),
+        { leftUpperArm: armsDown(body, t).leftUpperArm, leftLowerArm: armsDown(body, t).leftLowerArm },
+        arm('right', body, [x - upperArm * 0.75, y + upperArm * 0.45 + bob, z + upperArm * 0.3], [-1, -0.6, 0.3]),
+        leftOf(curledFingers({})),
+        curledFingers({ index: 0.02, middle: 0.02, ring: 0.03, little: 0.05, thumb: 0 }),
+        {
+          chest: [0, 0.04, 0.005],
+          neck: [0, 0, 0.02],
+          head: [0, 0.04, 0.05],
+        },
+      )
+    },
+  },
+  fan: {
+    face: 'relaxed',
+    duration: 2.8,
+    // Not one of her answers to a poke: it's for when the computer runs hot (or the menu).
+    random: false,
+    pose: (t, body) => {
+      const { face, height } = body
+      // Fanning herself: her hand flaps quickly beside her cheek, head tipped back a little.
+      const flap = wave(t, 0.3)
+      return combine(
+        breathing(t),
+        stance(0.7, -1),
+        { leftUpperArm: armsDown(body, t).leftUpperArm, leftLowerArm: armsDown(body, t).leftLowerArm },
+        arm('right', body, [-(face.halfWidth + height * 0.045), face.eyeY - height * 0.07, face.front + height * 0.07], [-0.8, -1, 0.1]),
+        leftOf(curledFingers({})),
+        curledFingers({ index: 0.05, middle: 0.06, ring: 0.08, little: 0.1, thumb: 0.05 }),
+        {
+          rightHand: [0, 0, flap * 0.32],
+          rightLowerArm: [0, flap * 0.04, 0],
+          chest: [-0.02, 0.03, 0.01],
+          neck: [-0.03, 0, 0.03],
+          head: [-0.07, 0.04, 0.07],
+        },
+      )
+    },
+  },
 }
 
 /** The built-in moments' ids, in menu order. */
@@ -106,4 +158,10 @@ export function makeMoments(vrm, vrm0 = false, body = defaultBody(), ids = MOMEN
     clips[id] = sampledClip(vrm, id, moment.duration, t => moment.pose(t, body), vrm0)
   }
   return clips
+}
+
+/** Built-in moment `id` done with her other hand: the same clip in a mirror, named `<id>:left`. */
+export function makeMirrored(vrm, vrm0 = false, body = defaultBody(), id) {
+  const moment = MOMENTS[id]
+  return sampledClip(vrm, `${id}:left`, moment.duration, t => mirrorPose(moment.pose(t, body)), vrm0)
 }

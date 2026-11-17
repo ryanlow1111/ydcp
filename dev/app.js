@@ -4,10 +4,18 @@
 // git-ignored dev/models folder; settings live in this tab only.
 //
 // Console: __app.pick('aboutModel'), __app.pick('outfit', 'hat01'), __app.pick('face', 'happy01'),
-// __app.emit('agent', { mood: 'done' }), __app.settings, __app.catalogue
+// __app.pick('chattiness', 'quiet'), __app.pick('notice', 'shy'),
+// __app.emit('agent', { mood: 'done' }), __app.emit('cursor', { x: 300, y: 100, inside: true }),
+// __app.emit('input'), __app.emit('woke', 3600), __app.settings, __app.catalogue,
+// __app.emit('sense', { battery: { percent: 15, plugged: false, charging: false }, cpu: 0.2 }),
+// __pet.zoneAt(160, 120) (what a click there would land on)
 
 const params = new URLSearchParams(location.search)
 const modelName = `${params.get('model') ?? 'vrm1-sample'}.vrm`
+// ?raf=timer keeps her animating in a hidden tab (browsers pause animation frames there).
+if (params.get('raf') === 'timer') {
+  window.requestAnimationFrame = callback => setTimeout(() => callback(performance.now()), 16)
+}
 
 // The page itself: index.html's body, so this never drifts from the app.
 const page = new DOMParser().parseFromString(await fetch('/index.html').then(r => r.text()), 'text/html')
@@ -19,7 +27,8 @@ document.body.append(panel)
 const callbacks = new Map()
 const listeners = new Map()
 let nextId = 1
-const settings = { outfits: {}, outfitParts: {} }
+// ?memory={"lastDay":"2026-11-01","streak":5} starts her with that memory; ?birthday=11-13 tells her yours.
+const settings = { outfits: {}, outfitParts: {}, memory: params.get('memory') ? JSON.parse(params.get('memory')) : null }
 const fake = {
   catalogue: null,
   settings,
@@ -31,6 +40,10 @@ const fake = {
   },
   /** A menu pick, as the tray menu sends it (outfit toggles are saved first, as in lib.rs). */
   pick(kind, id = null) {
+    if (kind === 'notice') {
+      const off = settings.noticesOff ?? []
+      settings.noticesOff = off.includes(id) ? off.filter(name => name !== id) : [...off, id]
+    }
     if (kind === 'outfit') {
       const wearing = fake.catalogue?.wearing ?? []
       settings.outfits[modelName] = id === null ? [] : wearing.includes(id) ? wearing.filter(name => name !== id) : [...wearing, id]
@@ -58,13 +71,20 @@ const commands = {
   read_lines: async () => {
     const response = await fetch('./models/lines.json')
     const text = response.ok ? await response.text() : null
-    return text?.trim().startsWith('{') ? text : null
+    const own = text?.trim().startsWith('{') ? text : null
+    return params.get('birthday') ? JSON.stringify({ ...JSON.parse(own ?? '{}'), birthday: params.get('birthday') }) : own
   },
   frame_rate: () => 60,
   app_language: () => params.get('lang') ?? 'en',
   pet_scale: () => 1,
   set_pet_scale: ({ scale }) => Math.min(2, Math.max(0.5, scale)),
   break_every: () => settings.breakEvery ?? 0,
+  chattiness: () => settings.chattiness ?? 'calm',
+  notices_off: () => settings.noticesOff ?? [],
+  memory: () => settings.memory,
+  remember: ({ memory }) => {
+    settings.memory = memory
+  },
   set_timer_left: ({ minutes }) => {
     fake.timerLeft = minutes
   },

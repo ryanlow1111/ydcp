@@ -1,12 +1,14 @@
 // YDCP front end: shows the chosen model from ~/.ydcp/models on the desktop, with the built-in
 // moments and any motions from ~/.ydcp/anims. Clicks pass through everywhere except on her;
-// drag her to move her, click to poke her. The menu (in the app) picks models, motions, vibes,
-// faces and size. She has her own mood (mood.js): sleepy when you're away, a hello when you're
-// back, musings; and, only if the agent link is on, a cheer when an agent finishes.
+// drag her to move her (she dangles: carry.js), click to poke her. The menu (in the app) picks
+// models, motions, vibes, faces and size. She has her own mood (mood.js): sleepy when you're
+// away, a hello when you're back, musings, a huff when poked too much; and, only if the agent
+// link is on, a cheer when an agent finishes. Everything she says takes its turn (director.js).
 // With no model yet, a welcome card helps add one.
 
 import { getVersion } from '@tauri-apps/api/app'
 import { createPet, parseMotion } from './pet.js'
+import { createDirector } from './director.js'
 import { createHitTest } from './hit.js'
 import { wireGestures } from './gestures.js'
 import { setCustomLines, setLanguage, t, translatePage } from './i18n.js'
@@ -14,10 +16,12 @@ import { customLines, isStandard, modelProfile, motionEntries, parseJson } from 
 import { inspectModel, modelNotes } from './modelinfo.js'
 import { createMood } from './mood.js'
 import { createReminders, span } from './reminders.js'
+import { createSenses } from './senses.js'
 import {
   addModel,
   appLanguage,
   breakEvery,
+  chattiness,
   setTimerLeft,
   showPet,
   currentModel,
@@ -26,19 +30,25 @@ import {
   petScale,
   setPetScale,
   listAnims,
+  memory,
   modelsFolder,
+  noticesOff,
   moveWindowTo,
   onAgent,
   onCursor,
+  onInput,
   onLibraryChange,
   onLinesChange,
   onPick,
   onProblem,
+  onSense,
+  onWoke,
   readAnim,
   readLines,
   readModel,
   readMotions,
   readProfile,
+  remember,
   setCatalogue,
   setClickThrough,
   sortOutfit,
@@ -68,23 +78,55 @@ let outfitParts = null
 let motionCredits = []
 const mood = createMood({ now: Date.now() })
 const reminders = createReminders({ now: Date.now() })
+/** Who gets to speak, and when (Menu → Chattiness). */
+const director = createDirector()
+/** What she notices about the computer itself: its battery, a long stretch of heavy work. */
+const senses = createSenses()
 
 // ---- Speech bubble ---------------------------------------------------------------------------
 
 let bubbleTimer = 0
-/** Shows `line` in her bubble for a few seconds. */
-function say(line, { talk = true, hold = 0 } = {}) {
-  if (!line) {
-    return
-  }
+/** Puts a line in her bubble for `ms`. */
+function show({ line, ms, talk }) {
   if (talk) {
     pet?.talk(line)
   }
   clearTimeout(bubbleTimer)
   bubble.textContent = line
   bubble.classList.remove('hidden')
-  bubbleTimer = setTimeout(() => bubble.classList.add('hidden'), Math.max(hold, 2500 + line.length * 60))
+  bubbleTimer = setTimeout(() => bubble.classList.add('hidden'), ms)
 }
+
+/**
+ * She has `line` to say. `kind` says why (director.js): an 'answer' to something you just did
+ * (the default), something you 'asked' for, a 'hello', or her 'own' idea. Unprompted lines may
+ * be held back or dropped; one with `wait` (ms) can wait that long for its turn.
+ */
+function say(line, { kind = 'answer', talk = true, hold = 0, wait = 0 } = {}) {
+  const turn = director.offer({ line, kind, talk, hold, wait }, Date.now())
+  if (turn) {
+    show(turn)
+  }
+  takeTurns()
+}
+
+let turnTimer = 0
+/** Shows a line that was waiting if its turn has come; else comes back when it does. */
+function takeTurns() {
+  const now = Date.now()
+  const turn = director.tick(now)
+  if (turn) {
+    show(turn)
+  }
+  clearTimeout(turnTimer)
+  const at = director.nextTurn(now)
+  if (at !== null) {
+    turnTimer = setTimeout(takeTurns, at - now + 30)
+  }
+}
+
+/** A greeting or goodnight: unprompted, and patient enough to let another bubble finish. */
+const HELLO = { kind: 'hello', wait: 8000 }
 
 // ---- Her mood ----------------------------------------------------------------------------------
 
@@ -97,29 +139,72 @@ function act(actions) {
     switch (action.do) {
       case 'sleep':
         pet.setAsleep(true)
-        say(action.line)
+        say(action.line, HELLO)
         break
       case 'wake':
         pet.setAsleep(false)
         if (action.line) {
           pet.playMoment('wave', { quiet: true })
-          say(action.line)
+          // Back from the computer's sleep: you may still be unlocking it, so her bubble stays.
+          say(action.line, { ...HELLO, hold: action.linger ? 10000 : 0 })
         }
         break
       case 'greet':
         pet.playMoment('wave', { quiet: true })
-        say(action.line)
+        say(action.line, HELLO)
         break
       case 'cheer':
         pet.setAsleep(false)
         pet.cheer()
-        say(action.line)
+        say(action.line, { kind: 'asked' })
         break
       case 'say':
+        // Her own musing (rationed), or a line the agent link sent (you asked for those).
+        say(action.line, { kind: action.kind ?? 'asked', wait: action.wait ?? 0 })
+        break
+      case 'poke':
+        pet.poke(action.zone)
         say(action.line)
+        break
+      case 'hold':
+        pet.snuggle(true)
+        say(action.line)
+        break
+      case 'huff':
+        pet.huff()
+        say(action.line)
+        break
+      case 'remember':
+        // The first time she sees you today: the day and the run of days are saved.
+        remember(action.memory).catch(error => console.error(`[ydcp] memory: ${error}`))
         break
     }
   }
+}
+
+// ---- What she notices about the computer (senses.js) ------------------------------------------
+
+/**
+ * Something about the computer is worth a reaction. Her body shows it at once; her words take
+ * their turn like any idea of her own (so on Quiet she only shows it).
+ */
+function noticed({ event, line, wait }) {
+  switch (event) {
+    case 'battery.low':
+    case 'battery.critical':
+      pet.feel('sad', 5)
+      break
+    case 'power.plugged':
+      pet.feel('happy', 4)
+      break
+    case 'cpu.busy':
+      pet.playMoment('fan', { quiet: true })
+      break
+    case 'cpu.done':
+      pet.cheer()
+      break
+  }
+  say(line, { kind: 'own', wait })
 }
 
 // ---- Reminders (Menu → Reminders): a break after a stretch of work, and a timer -----------------
@@ -137,7 +222,7 @@ async function remind({ kind, line }) {
     act(mood.activity(Date.now()))
   }
   pet.playMoment('wave', { quiet: true })
-  say(line, { hold: 20000 })
+  say(line, { kind: 'asked', hold: 20000 })
 }
 
 function tickReminders(time) {
@@ -151,6 +236,7 @@ setInterval(() => {
   const time = Date.now()
   act(mood.tick(time))
   tickReminders(time)
+  takeTurns()
 }, 5000)
 
 // ---- Cards (they catch every click while shown) ------------------------------------------------
@@ -341,21 +427,47 @@ async function ensurePet() {
     act(mood.activity(Date.now()))
     reminders.activity(Date.now())
   })
+  // Typing, clicking or scrolling counts as being here too, even with the cursor still.
+  await onInput(() => {
+    act(mood.activity(Date.now()))
+    reminders.activity(Date.now())
+  })
   wireGestures({
     element: canvas,
     getWindowPosition: windowPosition,
     scale: windowScale,
     moveWindowTo,
-    onPoke: () => {
-      const wasAsleep = mood.asleep
-      act(mood.activity(Date.now()))
-      if (!wasAsleep) {
-        pet.poke()
+    onPoke: ({ x, y }) => {
+      director.contact(Date.now())
+      act(mood.poke(Date.now(), pet.zoneAt(x, y)))
+    },
+    onHold: down => {
+      if (down) {
+        director.contact(Date.now())
+        act(mood.hold(Date.now()))
+      } else {
+        pet.snuggle(false)
       }
     },
     onPress: down => (down ? hit.hold() : hit.release()),
+    onDrag: (phase, x, y) => {
+      if (phase === 'start') {
+        director.contact(Date.now())
+        act(mood.activity(Date.now()))
+        pet.pickUp()
+      } else if (phase === 'move') {
+        pet.carry(x, y)
+      } else {
+        pet.putDown()
+      }
+    },
   })
   wireResizing()
+  pet.setNotices({ glances: !switchedOff.has('glances'), shy: !switchedOff.has('shy') })
+  // For the dev pages only (never in a release): lets the console ask her things, e.g. __pet.zoneAt(x, y).
+  if (import.meta.env.DEV) {
+    window.__pet = pet
+  }
   return pet
 }
 
@@ -462,7 +574,10 @@ const applyLines = () => setCustomLines([sharedLines, profileLines])
 
 /** (Re)reads lines.json and the current model's profile lines. Broken files are skipped. */
 async function loadLines() {
-  sharedLines = customLines(parseJson(await readLines().catch(() => null))?.lines)
+  const shared = parseJson(await readLines().catch(() => null))
+  sharedLines = customLines(shared?.lines)
+  // lines.json may also say when your birthday is.
+  mood.setBirthday(shared?.birthday)
   if (model) {
     profileLines = modelProfile(parseJson(await readProfile(model).catch(() => null))).lines
   }
@@ -516,6 +631,19 @@ function applyLanguage(code) {
 
 // ---- Menu picks and app events ------------------------------------------------------------
 
+/** Menu → Notices: the ones switched off. */
+let switchedOff = new Set()
+
+/** (Re)reads Menu → Notices and makes each switch take effect. */
+async function applyNotices() {
+  switchedOff = new Set(await noticesOff().catch(() => []))
+  mood.setOccasions(!switchedOff.has('occasions'))
+  pet?.setNotices({ glances: !switchedOff.has('glances'), shy: !switchedOff.has('shy') })
+}
+
+/** What she says when Menu → Chattiness changes. */
+const CHATTINESS_LINES = { quiet: 'chattiness.quiet', calm: 'chattiness.calm', chatty: 'chattiness.chatty' }
+
 async function start() {
   await onPick(({ kind, id }) => {
     switch (kind) {
@@ -567,15 +695,37 @@ async function start() {
       case 'language':
         applyLanguage(id)
         break
+      case 'notice':
+        applyNotices()
+        break
+      case 'chattiness':
+        director.setChattiness(id)
+        say(t(CHATTINESS_LINES[director.chattiness]))
+        break
     }
   })
   await onLibraryChange(() => loadLibrary())
   await onLinesChange(() => loadLines())
-  await onProblem(message => say(`⚠️ ${message}`, { talk: false }))
+  await onProblem(message => say(`⚠️ ${message}`, { kind: 'asked', talk: false }))
   await onAgent(state => act(mood.agent(state, Date.now())))
+  await onWoke(seconds => mood.slept(seconds * 1000))
+  await onSense(snapshot => {
+    const awake = Boolean(pet && model) && !mood.asleep
+    // The app doesn't read what's switched off; this is only for a report already on its way.
+    const reading = {
+      battery: switchedOff.has('battery') ? null : snapshot?.battery,
+      cpu: switchedOff.has('work') ? null : snapshot?.cpu,
+    }
+    for (const notice of senses.read(reading, Date.now(), awake)) {
+      noticed(notice)
+    }
+  })
 
   applyLanguage(await appLanguage().catch(() => 'en'))
   reminders.setBreakEvery(await breakEvery().catch(() => 0), Date.now())
+  director.setChattiness(await chattiness().catch(() => 'calm'))
+  await applyNotices()
+  mood.setMemory(await memory().catch(() => null))
   await loadLines()
   await loadLibrary()
   await loadModel(await currentModel().catch(() => null))

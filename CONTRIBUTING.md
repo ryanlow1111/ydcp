@@ -42,7 +42,7 @@ npm run check:models -- ~/.ydcp/models
 Two dev pages run YDCP in a normal browser tab after `npx vite`. Put test models in `dev/models/` first; that folder is git-ignored.
 
 - `http://localhost:1420/dev/pose.html?model=<name>`: the pose lab, for trying and tuning motions. Add `&raf=timer` to keep it animating in a background tab.
-- `http://localhost:1420/dev/app.html?model=<name>`: the real front end, with its cards, with the Rust side faked. From the console, `__app.pick('aboutModel')` or `__app.pick('outfit', 'hat01')` acts like a menu pick.
+- `http://localhost:1420/dev/app.html?model=<name>`: the real front end, with its cards, with the Rust side faked. From the console, `__app.pick('aboutModel')` or `__app.pick('outfit', 'hat01')` acts like a menu pick, and `__app.emit('cursor', { x: 300, y: 100, inside: true })` moves the cursor she sees. `&raf=timer` works here too.
 
 ## Translations
 
