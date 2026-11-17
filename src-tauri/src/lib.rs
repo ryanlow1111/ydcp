@@ -5,7 +5,8 @@
 //! holds the menu (`menu`). Clicks pass through everywhere except on her (`set_click_through`,
 //! driven by the front end from the cursor feed in `cursor`), she can be dragged, and she
 //! comes back where she was left (`settings`). She knows you're here from the cursor and from
-//! how long ago the keyboard or mouse was touched (`idle`). Models and motions are read only from
+//! how long ago the keyboard or mouse was touched (`idle`), and she can tell how the computer
+//! itself is doing: its battery and how busy it is (`senses`). Models and motions are read only from
 //! `~/.ydcp/` (`assets`), and changes there are noticed (`watch`).
 
 mod agent;
@@ -14,6 +15,7 @@ mod cursor;
 mod i18n;
 mod idle;
 mod menu;
+mod senses;
 mod settings;
 mod watch;
 
@@ -764,6 +766,7 @@ pub fn run() {
                 cursor::start(window);
             }
             watch::start(app.handle().clone());
+            senses::start(app.handle().clone());
             // Windows: started by double-clicking a .vrm.
             open_model_files(app.handle(), std::env::args_os().skip(1).map(PathBuf::from));
             Ok(())

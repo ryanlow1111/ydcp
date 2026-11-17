@@ -218,8 +218,10 @@ describe('model profiles', () => {
 })
 
 describe('built-in moments', () => {
-  test('the set is Wave, Peace, Shy and High five (Cheer and Stretch were removed)', () => {
-    expect(MOMENT_IDS).toEqual(['wave', 'peace', 'shy', 'highfive'])
+  test('the set is Wave, Peace, Shy, High five and Phew (Cheer and Stretch were removed)', () => {
+    expect(MOMENT_IDS).toEqual(['wave', 'peace', 'shy', 'highfive', 'fan'])
+    // Fanning herself is for a hot computer, not an answer to a poke.
+    expect(MOMENTS.fan.random).toBe(false)
   })
 
   test('the high five with her other hand is the same clip in a mirror', () => {

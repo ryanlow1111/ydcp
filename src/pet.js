@@ -456,7 +456,7 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
       action: mixer.clipAction(clip),
     })
     for (const [id, clip] of Object.entries(makeMoments(vrm, vrm0, figure))) {
-      moments[id] = builtIn(id, id, clip, true)
+      moments[id] = builtIn(id, id, clip, MOMENTS[id].random ?? true)
     }
     // The high five with her other hand, for a tap on that one (not in the menu).
     moments['highfive:left'] = builtIn('highfive:left', 'highfive', makeMirrored(vrm, vrm0, figure, 'highfive'), false)
@@ -508,6 +508,8 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
   let pokeMomentAt = Infinity
   let huffUntil = -Infinity
   let carriedAt = -Infinity
+  /** A passing feeling on her face (worried about the battery, glad of the charger): which, until when. */
+  const feeling = { face: null, until: -Infinity }
   /** Held with a still press: she leans into it, as for a pat. */
   let snuggling = false
   /** A flinch: when it began, and the side it came from as you see her (-1 left, 1 right). */
@@ -950,7 +952,8 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     // the moment's face, else a soft smile.
     // Her own pat face if the profile picks one (faces.pat), else relaxed, else happy.
     const patFace = profile.faces.pat && faceFor('pat') ? 'pat' : faceFor('relaxed') ? 'relaxed' : 'happy'
-    const mood = sincePoke < 0.45 || hang.dizzy > 0.5 ? 'surprised' : t < huffUntil ? 'angry' : pat.amount > 0.5 ? patFace : momentFace
+    const passing = t < feeling.until ? feeling.face : null
+    const mood = sincePoke < 0.45 || hang.dizzy > 0.5 ? 'surprised' : t < huffUntil ? 'angry' : pat.amount > 0.5 ? patFace : (momentFace ?? passing)
     const face = faceFor(heldFace ?? mood)
     const em = vrm.expressionManager
     if (em) {
@@ -1018,6 +1021,11 @@ export function createPet({ canvas, onFirstFrame = () => {}, afterRender = () =>
     setOutfit,
     toggleOutfit,
     poke,
+    /** Shows `face` for `seconds`, unless something stronger is on her face (a poke, a moment). */
+    feel(face, seconds) {
+      feeling.face = face
+      feeling.until = timer.getElapsed() + seconds
+    },
     zoneAt,
     snuggle,
     huff,

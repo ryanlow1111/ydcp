@@ -16,6 +16,7 @@ import { customLines, isStandard, modelProfile, motionEntries, parseJson } from 
 import { inspectModel, modelNotes } from './modelinfo.js'
 import { createMood } from './mood.js'
 import { createReminders, span } from './reminders.js'
+import { createSenses } from './senses.js'
 import {
   addModel,
   appLanguage,
@@ -39,6 +40,7 @@ import {
   onLinesChange,
   onPick,
   onProblem,
+  onSense,
   onWoke,
   readAnim,
   readLines,
@@ -77,6 +79,8 @@ const mood = createMood({ now: Date.now() })
 const reminders = createReminders({ now: Date.now() })
 /** Who gets to speak, and when (Menu → Chattiness). */
 const director = createDirector()
+/** What she notices about the computer itself: its battery, a long stretch of heavy work. */
+const senses = createSenses()
 
 // ---- Speech bubble ---------------------------------------------------------------------------
 
@@ -175,6 +179,31 @@ function act(actions) {
         break
     }
   }
+}
+
+// ---- What she notices about the computer (senses.js) ------------------------------------------
+
+/**
+ * Something about the computer is worth a reaction. Her body shows it at once; her words take
+ * their turn like any idea of her own (so on Quiet she only shows it).
+ */
+function noticed({ event, line, wait }) {
+  switch (event) {
+    case 'battery.low':
+    case 'battery.critical':
+      pet.feel('sad', 5)
+      break
+    case 'power.plugged':
+      pet.feel('happy', 4)
+      break
+    case 'cpu.busy':
+      pet.playMoment('fan', { quiet: true })
+      break
+    case 'cpu.done':
+      pet.cheer()
+      break
+  }
+  say(line, { kind: 'own', wait })
 }
 
 // ---- Reminders (Menu → Reminders): a break after a stretch of work, and a timer -----------------
@@ -665,6 +694,12 @@ async function start() {
   await onProblem(message => say(`⚠️ ${message}`, { kind: 'asked', talk: false }))
   await onAgent(state => act(mood.agent(state, Date.now())))
   await onWoke(seconds => mood.slept(seconds * 1000))
+  await onSense(snapshot => {
+    const awake = Boolean(pet && model) && !mood.asleep
+    for (const notice of senses.read(snapshot, Date.now(), awake)) {
+      noticed(notice)
+    }
+  })
 
   applyLanguage(await appLanguage().catch(() => 'en'))
   reminders.setBreakEvery(await breakEvery().catch(() => 0), Date.now())

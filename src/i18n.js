@@ -48,6 +48,9 @@ export function lines(key) {
   return category ? layeredLines(builtIn, customLayers, category) : builtIn
 }
 
+/** A line with its `{n}` or `{span}` filled in from `values`; null if there's no line. */
+export const fill = (line, values) => line?.replace(/\{(\w+)\}/g, (whole, name) => (values[name] === undefined ? whole : String(values[name]))) ?? null
+
 /** Names joined in this language ("a, b and 3 more"), at most `most` shown. */
 export function listOf(names, most = 10) {
   const join = items => items.join(t('list.separator'))

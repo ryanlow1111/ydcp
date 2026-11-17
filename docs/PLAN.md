@@ -49,7 +49,7 @@ She can **optionally** react to an AI coding agent, such as cheering when a task
 |---|---|---|---|
 | App code (Rust, JS) | ✅ | MIT | Ours |
 | Built-in vibe loops (idle, sway, bop, sleepy) | ✅ | MIT | Generated in code (`makeLoops`), ours |
-| **Built-in moments** (wave, peace, shy, high five) | ✅ | MIT | **New:** written in code from curves, like the vibe loops; no third-party files (§6.3) |
+| **Built-in moments** (wave, peace, shy, high five, phew) | ✅ | MIT | **New:** written in code from curves, like the vibe loops; no third-party files (§6.3) |
 | App icon, tray icon, UI art | ✅ | MIT or CC0 | Original |
 | Default VRM model | ❌ **decided: none** | — | Users bring their own model (VRoid Studio, VRoid Hub, BOOTH, or a converted VRChat avatar whose terms allow it). See the README |
 | VRoid VRMA_MotionPack (BOOTH 5512385) | ❌ | Free, **no redistribution** | Users download from BOOTH; we ship a `motions.json` preset for those files (the preset is our text, not their files) |
@@ -233,6 +233,7 @@ She can **optionally** react to an AI coding agent, such as cheering when a task
   - Her gaze (`gaze.js`): the moving cursor, then back to you, with glances. Four pokes in five seconds is a huff. Dragged, she dangles and swings (`carry.js`).
   - Touch (`touch.js`): a poke lands on her face (a flinch), a hand (she holds it up for a high five; a click on the raised hand is the clap) or her body (a moment). A still press of half a second is a hold: she leans in. A cursor rushing at her face makes her flinch; one resting on it for three seconds makes her shy; one wiggled beside her (four changes of direction in a second and a half) tips her head toward it.
   - Taking turns (`director.js`): every line has a kind. Answers to what you just did and things you asked for (reminders, the agent link) are always shown. Greetings wait for a bubble that's up. Her own ideas (musings, the time of day) are rationed by Chattiness, never replace a bubble, and stay unsaid for 20 seconds after you touch her. Quiet mutes greetings and her own ideas.
+  - The computer itself (`senses.rs` reads, `senses.js` decides): every 5 seconds the app reports the battery (level, plugged in, charging) and the overall processor share in use. She reacts once to: battery at 20% and at 8% on battery power, the charger going in at 40% or less, a minute at 75% load or more (she fans herself), and the calm after two minutes or more of that. Never while she dozes; a low battery is then mentioned when she wakes.
   - Memory (`memory.js`): `settings.json` keeps the last day she saw you and the run of days, nothing else. The first time she sees you each day (at launch, on waking, or back from the computer's sleep) the day may be an occasion, in this order: your birthday (`"birthday"` in `lines.json`), three or more days apart, a run of 3/7/14/30/50/100/200/365 days, a weekend. An occasion's line replaces her greeting.
   - After the computer slept five minutes or more (the cursor loop sees the clock jump), she welcomes you back at the next input.
   - She greets you on launch and when she wakes.
@@ -285,7 +286,7 @@ Optional fields: `"line": "string"` (said in her bubble) and `"at": <ms epoch>`.
 | No open ports | No server; file watch only |
 | Least file access | Commands only touch `~/.ydcp/`; names validated (no `/`, `\`, `..`; allowed extensions); size caps |
 | Least permissions | `capabilities/default.json`: `core:event:default`, `core:window:allow-start-dragging`, `core:window:allow-set-size`, `window-state:default`, `dialog:allow-open`, `opener:allow-reveal-item-in-dir` (pet folder only), `opener:allow-open-url` (fixed docs and project links only) |
-| No special OS permissions | No Input Monitoring, Accessibility, Screen Recording, Camera or Mic, on either OS. The only things read about the user are the cursor position and the seconds since the last input; the only things kept are the last day she saw them and the run of days |
+| No special OS permissions | No Input Monitoring, Accessibility, Screen Recording, Camera or Mic, on either OS. The only things read about the user are the cursor position and the seconds since the last input; about the computer, the battery level, the power source and one overall processor share; the only things kept are the last day she saw them and the run of days |
 | No shell | No shell plugin |
 
 Install-time note: on Windows, if WebView2 is missing, the installer downloads it from Microsoft once.

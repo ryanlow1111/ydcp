@@ -7,7 +7,7 @@
 // Plain logic with the time passed in, so it's easy to test; main.js acts on what it returns.
 // Her lines are in src/locales/*.json.
 
-import { lines, t } from './i18n.js'
+import { fill, lines, t } from './i18n.js'
 import { meet, parseBirthday, validMemory } from './memory.js'
 
 /** Nothing from the keyboard or mouse for this long, and she dozes off. */
@@ -57,9 +57,6 @@ export function awaySpan(ms) {
   const days = Math.round(hours / 24)
   return days <= 1 ? t('away.day') : t('away.days', { n: days })
 }
-
-/** A line with its `{n}` or `{span}` filled in; null if there's no line. */
-const fill = (line, values) => line?.replace(/\{(\w+)\}/g, (whole, name) => (values[name] === undefined ? whole : String(values[name]))) ?? null
 
 /** A random line from one of her lists (lines.greetings…), in the current language. */
 const pick = (key, random) => {

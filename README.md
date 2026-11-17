@@ -194,6 +194,8 @@ She watches the cursor while it moves, then looks back at you, with a glance awa
 
 When you open your computer again after it slept for five minutes or more, she welcomes you back, and after an hour or more she says how long it's been.
 
+She notices how the computer itself is doing. On a laptop she worries when the battery drops to 20% (and again at 8%) and is glad when you plug in. When the processor has been working hard for a minute she fans herself, and when a job of two minutes or more ends she asks if it's done.
+
 She remembers the last day she saw you. The first time each day she may have a word for it: a run of days together (3, 7, 14, 30…), three or more days apart, the weekend, or your birthday.
 
 When you leave the keyboard and mouse alone for about 10 minutes she gets sleepy, and she wakes up when you're back. Typing counts as being there, even if the mouse doesn't move.
@@ -202,7 +204,7 @@ When you leave the keyboard and mouse alone for about 10 minutes she gets sleepy
 
 ## Motions
 
-**Built in (no files needed):** vibes (Idle, Sway, Bop, Sleepy) and moments (Wave, Peace, Shy, High five). They work with any VRM model.
+**Built in (no files needed):** vibes (Idle, Sway, Bop, Sleepy) and moments (Wave, Peace, Shy, High five, Phew). They work with any VRM model.
 
 **Add more:** put `.vrma` files (VRM Animation) into the motions folder, or use **Motions → Add motions…**:
 
@@ -313,6 +315,7 @@ The `.json` files above are plain text files that you can open in any text edito
 - No open network ports. The AI agent link is a local file.
 - **No special permissions:** no screen recording, accessibility, input monitoring, camera or microphone.
 - **What she knows about you:** where the cursor is, and how many seconds ago the keyboard or mouse was last touched (one number from the system, so she knows you're there). Never which keys, what you typed, or which app you're in.
+- **What she knows about the computer:** the battery level and whether it's plugged in, and how busy the processor is as one overall share. Never which apps are running or what they're doing.
 - **What she remembers:** two things, in `settings.json`: the last day she saw you, and how many days in a row. Your birthday is only read from `lines.json` if you wrote it there.
 - YDCP reads and writes only its own `.ydcp` folder, plus `.vrm` files you choose to open. The one exception is **Start at login**, which only when you turn it on adds a standard login entry (Mac: `~/Library/LaunchAgents/YDCP.plist`; Windows: the usual "Run" entry in your user registry).
 - The only time anything is downloaded is on Windows if WebView2 is missing during install, from Microsoft.

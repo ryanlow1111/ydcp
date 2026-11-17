@@ -62,12 +62,17 @@ A cool character's profile, `rei.json`, replacing hers completely:
 | `missed` | The first time she sees you after three or more days apart. `{n}` becomes the number of days |
 | `streak` | The first time she sees you on day 3, 7, 14, 30, 50, 100, 200 and 365 in a row. `{n}` becomes the number of days |
 | `weekend` | The first time she sees you on a Saturday or Sunday |
+| `batteryLow` | On battery at 20% or below, once. `{n}` becomes the level |
+| `batteryCritical` | On battery at 8% or below, once. `{n}` becomes the level |
+| `plugged` | When you plug in with 40% or less left |
+| `busy` | When the processor has been working hard for a minute |
+| `busyDone` | When heavy work of two minutes or more ends |
 | `face` | Often, when you poke her face |
 | `held` | Now and then, while you press and hold her |
 | `annoyed` | When you poke her four times in a row |
 | `dizzy` | When you shake her while dragging her |
 | `curious` | Sometimes, when you wiggle the cursor beside her |
-| `wave`, `peace`, `shy`, `highfive` | During the built-in moments of those names. `shy` is also what she says when the cursor rests on her face |
+| `wave`, `peace`, `shy`, `highfive`, `fan` | During the built-in moments of those names (`fan` is Phew). `shy` is also what she says when the cursor rests on her face |
 
 Each is a list of lines; she picks one at random each time. A single line in quotes works too: `"pat": "Nyaa~"`.
 

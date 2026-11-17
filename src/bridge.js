@@ -88,6 +88,9 @@ export const onCursor = handler => listen('cursor', event => handler(event.paylo
 /** Calls `handler()` about once a second while the keyboard or mouse is in use (no details: just "you're here"). */
 export const onInput = handler => listen('input', () => handler())
 
+/** Calls `handler({ battery, cpu })` every few seconds: how the computer itself is doing (senses.js). */
+export const onSense = handler => listen('sense', event => handler(event.payload))
+
 /** Calls `handler(seconds)` when the computer comes back from `seconds` of sleep. */
 export const onWoke = handler => listen('woke', event => handler(event.payload))
 

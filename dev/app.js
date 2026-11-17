@@ -7,6 +7,7 @@
 // __app.pick('chattiness', 'quiet'),
 // __app.emit('agent', { mood: 'done' }), __app.emit('cursor', { x: 300, y: 100, inside: true }),
 // __app.emit('input'), __app.emit('woke', 3600), __app.settings, __app.catalogue,
+// __app.emit('sense', { battery: { percent: 15, plugged: false, charging: false }, cpu: 0.2 }),
 // __pet.zoneAt(160, 120) (what a click there would land on)
 
 const params = new URLSearchParams(location.search)
